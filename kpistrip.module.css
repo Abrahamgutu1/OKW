@@ -1,0 +1,62 @@
+.strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--gap);
+  flex-shrink: 0;
+}
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border-left: 3px solid transparent;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.iconRow {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 10px;
+}
+.icon { font-size: 14px; }
+.label {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.value {
+  font-size: 30px; font-weight: 700; line-height: 1;
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.sub { font-size: 10px; color: var(--text-muted); }
+
+/* Color variants — left border + value color */
+.blue  { border-left-color: var(--blue); }
+.red   { border-left-color: var(--red); }
+.green { border-left-color: var(--green); }
+.amber { border-left-color: var(--amber); }
+.teal  { border-left-color: var(--teal); }
+
+.blue  .value { color: var(--blue); }
+.red   .value { color: var(--red); }
+.green .value { color: var(--green); }
+.amber .value { color: var(--amber); }
+.teal  .value { color: var(--teal); }
+
+/* Subtle background tint */
+.blue  { background: linear-gradient(135deg, #fff 60%, var(--blue-light)); }
+.red   { background: linear-gradient(135deg, #fff 60%, var(--red-light)); }
+.green { background: linear-gradient(135deg, #fff 60%, var(--green-light)); }
+.amber { background: linear-gradient(135deg, #fff 60%, var(--amber-light)); }
+.teal  { background: linear-gradient(135deg, #fff 60%, var(--teal-light)); }

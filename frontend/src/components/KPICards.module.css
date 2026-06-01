@@ -1,0 +1,74 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s, transform 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+/* Top accent bar */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.blue::before    { background: var(--brand-500); }
+.danger::before  { background: var(--danger-600); }
+.success::before { background: var(--success-600); }
+.warn::before    { background: var(--warn-600); }
+.teal::before    { background: var(--teal-600); }
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.iconBox {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.blue    .iconBox { background: var(--brand-100); }
+.danger  .iconBox { background: var(--danger-100); }
+.success .iconBox { background: var(--success-100); }
+.warn    .iconBox { background: var(--warn-100); }
+.teal    .iconBox { background: var(--teal-100); }
+
+.trend {
+  font-size: 10px; font-weight: 600; padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+.trendUp   { background: var(--success-100); color: var(--success-700); }
+.trendDown { background: var(--danger-100);  color: var(--danger-700); }
+
+.value {
+  font-size: 28px; font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1; margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+.blue    .value { color: var(--brand-600); }
+.danger  .value { color: var(--danger-600); }
+.success .value { color: var(--success-600); }
+.warn    .value { color: var(--warn-600); }
+.teal    .value { color: var(--teal-600); }
+
+.label {
+  font-size: 11px; font-weight: 600; color: var(--gray-700);
+}
+.sub { font-size: 10px; color: var(--gray-400); margin-top: 2px; }

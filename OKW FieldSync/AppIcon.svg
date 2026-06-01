@@ -1,0 +1,61 @@
+<!-- 
+OKW FieldSync App Icon
+Size: 1024x1024px
+Background: #0062BD (brand blue)
+Use this as reference for creating the icon in Xcode Assets
+
+Instructions for Xcode:
+1. In Xcode, click Assets.xcassets in the left sidebar
+2. Click AppIcon
+3. Drag your generated icon images into the slots
+4. Required sizes: 1024x1024 (App Store), 180x180 (iPhone @3x), 120x120 (iPhone @2x)
+
+To generate PNG from this SVG:
+- Open in browser, screenshot at correct sizes
+- Or use an online SVG to PNG converter
+- Or use the Sketch/Figma files based on these specs
+
+Icon Design Specs:
+- Background: #0062BD (rounded rect, corner radius = 22.5% of width)
+- Water drop: white, centered, takes up ~45% of icon width
+- Scan lines inside drop: #0062BD, 3 horizontal lines
+- Corner accent dots: white, 4px radius, 20% opacity
+- Pipe lines: white, 40% opacity, extending from center to edges
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" rx="230" fill="#0062BD"/>
+  
+  <!-- Subtle grid -->
+  <g opacity="0.06" stroke="white" stroke-width="2">
+    <line x1="256" y1="0" x2="256" y2="1024"/>
+    <line x1="512" y1="0" x2="512" y2="1024"/>
+    <line x1="768" y1="0" x2="768" y2="1024"/>
+    <line x1="0" y1="256" x2="1024" y2="256"/>
+    <line x1="0" y1="512" x2="1024" y2="512"/>
+    <line x1="0" y1="768" x2="1024" y2="768"/>
+  </g>
+  
+  <!-- Pipe lines extending from center -->
+  <g opacity="0.3" stroke="white" stroke-width="12" stroke-linecap="round">
+    <line x1="180" y1="512" x2="370" y2="512"/>
+    <line x1="654" y1="512" x2="844" y2="512"/>
+    <line x1="512" y1="180" x2="512" y2="330"/>
+    <line x1="512" y1="694" x2="512" y2="844"/>
+  </g>
+  
+  <!-- Corner dots -->
+  <circle cx="180" cy="512" r="18" fill="white" opacity="0.4"/>
+  <circle cx="844" cy="512" r="18" fill="white" opacity="0.4"/>
+  <circle cx="512" cy="180" r="18" fill="white" opacity="0.4"/>
+  
+  <!-- Water drop -->
+  <path d="M512 220 C512 220 340 430 340 560 C340 656 418 734 512 734 C606 734 684 656 684 560 C684 430 512 220 512 220Z" fill="white"/>
+  
+  <!-- Inner highlight -->
+  <path d="M460 310 C460 310 410 400 410 470" stroke="white" stroke-width="8" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+  
+  <!-- AI scan lines inside drop -->
+  <line x1="430" y1="545" x2="594" y2="545" stroke="#0062BD" stroke-width="18" stroke-linecap="round"/>
+  <line x1="446" y1="590" x2="578" y2="590" stroke="#0062BD" stroke-width="12" stroke-linecap="round" opacity="0.55"/>
+  <line x1="464" y1="630" x2="560" y2="630" stroke="#0062BD" stroke-width="8" stroke-linecap="round" opacity="0.25"/>
+</svg>

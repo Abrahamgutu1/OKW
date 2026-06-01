@@ -1,0 +1,66 @@
+.wrap {
+  position: relative;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column;
+  overflow: hidden; height: 100%;
+}
+
+.controls {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0; gap: 10px; z-index: 10;
+}
+.controlsLeft  { display: flex; align-items: center; gap: 6px; }
+.controlsRight {}
+.layerLabel { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.07em; }
+.layerBtn {
+  font-size: 11px; font-weight: 500; color: var(--gray-600);
+  background: var(--gray-50); border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); padding: 3px 9px;
+  cursor: pointer; font-family: var(--font-ui); transition: all 0.12s;
+}
+.layerBtn:hover  { background: var(--gray-100); color: var(--gray-800); }
+.layerActive {
+  background: var(--brand-100) !important;
+  border-color: var(--brand-500) !important;
+  color: var(--brand-700) !important;
+  font-weight: 600;
+}
+.mapInfo { font-size: 10px; color: var(--gray-400); font-family: var(--font-mono); }
+
+.map { flex: 1; min-height: 0; height: 100%; }
+
+.legend {
+  position: absolute;
+  bottom: 32px; left: 12px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 8px 11px;
+  box-shadow: var(--shadow-sm);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.legendTitle {
+  font-size: 9px; font-weight: 700; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.legendItem {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--gray-700); margin-bottom: 4px;
+}
+.legendItem:last-child { margin-bottom: 0; }
+.legendDot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+.wrap { min-height: 300px; }
+.map  { height: 100% !important; min-height: 300px; }

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+
+# Xcode
+*.xcuserstate
+*.xcworkspace/xcuserdata
+DerivedData/
+build/
+
+# Oracle / LaTeX
+compliance_report.aux
+compliance_report.log
+compliance_report.out
+*.pdf
+
+# Mac
+.DS_Store
+
+# Large files
+FieldPhotos/
+SyncDrop/*.processed
+PipeVisionDataset/images/
+PipeVisionModels/
