@@ -11,8 +11,8 @@ enum ExportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noRecords:          return "No records selected for export."
-        case .encodingFailed:     return "Failed to encode payload as JSON."
+        case .noRecords:              return "No records selected for export."
+        case .encodingFailed:         return "Failed to encode payload as JSON."
         case .fileWriteFailed(let e): return "File write failed: \(e.localizedDescription)"
         }
     }
@@ -28,11 +28,15 @@ final class ExportManager {
 
         let exportRecords = records.map {
             ExportRecord(
-                evidence_id:     $0.evidenceID,
-                service_line_id: $0.serviceLineID,
-                gps_latitude:    $0.gpsLatitude,
-                gps_longitude:   $0.gpsLongitude,
-                photo_base64:    $0.photoBase64
+                evidence_id:            $0.evidenceID,
+                service_line_id:        $0.serviceLineID,
+                gps_latitude:           $0.gpsLatitude,
+                gps_longitude:          $0.gpsLongitude,
+                photo_base64:           $0.photoBase64,
+                vision_labels:          $0.visionLabels,
+                vision_color:           $0.visionColor,
+                vision_pipe_confirmed:  $0.visionPipeConfirmed,
+                vision_confidence:      $0.visionConfidence
             )
         }
 
@@ -79,7 +83,6 @@ final class ExportManager {
                 applicationActivities: nil
             )
 
-            // iPad needs a popover anchor — use centre of screen as fallback
             if let popover = activity.popoverPresentationController {
                 popover.sourceView = viewController.view
                 popover.sourceRect = CGRect(
@@ -93,7 +96,6 @@ final class ExportManager {
             viewController.present(activity, animated: true)
 
         } catch {
-            // Show alert on failure
             let alert = UIAlertController(
                 title:   "Export Failed",
                 message: error.localizedDescription,
@@ -112,8 +114,8 @@ struct ShareSheetButton: View {
     let records: [InspectionRecord]
     let label:   String
 
-    @State private var showError  = false
-    @State private var errorMsg   = ""
+    @State private var showError = false
+    @State private var errorMsg  = ""
 
     var body: some View {
         Button(action: triggerExport) {
@@ -137,7 +139,6 @@ struct ShareSheetButton: View {
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let vc    = scene.windows.first?.rootViewController else { return }
 
-        // Find the topmost presented controller
         var topVC = vc
         while let presented = topVC.presentedViewController {
             topVC = presented

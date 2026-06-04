@@ -28,7 +28,7 @@ final class NetworkManager: ObservableObject {
     //   → Find it: System Settings → Wi-Fi → Details → IP Address
     //   → Example: "192.168.1.42"
     //
-    static let macIPAddress = "localhost"   // ← change to Mac IP for real device
+    static let macIPAddress = "10.5.169.147"  // ← change to Mac IP for real device
     static let apiPort      = 5001
     static let baseURL      = "http://\(macIPAddress):\(apiPort)"
 

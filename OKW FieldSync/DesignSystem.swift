@@ -279,7 +279,7 @@ struct PageHeader: View {
     let title:    String
     let subtitle: String
     var trailing: AnyView? = nil
-
+    
     var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {

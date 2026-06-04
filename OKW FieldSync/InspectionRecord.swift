@@ -1,6 +1,6 @@
 // InspectionRecord.swift
 // OKW FieldSync — Local persistence model
-// SwiftData (iOS 17+) — falls back to instructions for CoreData below
+// SwiftData (iOS 17+)
 
 import Foundation
 import SwiftData
@@ -15,33 +15,47 @@ enum SyncStatus: String, Codable {
 // ── Local device record (SwiftData model) ─────────────────────────────────────
 @Model
 final class InspectionRecord {
-    var id:              UUID
-    var evidenceID:      Int
-    var serviceLineID:   Int
-    var gpsLatitude:     Double
-    var gpsLongitude:    Double
-    var gpsAccuracy:     Double        // metres
-    var photoBase64:     String        // raw Base64, no data-URI prefix
-    var capturedAt:      Date
-    var syncStatus:      String        // store as String for SwiftData compat
+    var id:                   UUID
+    var evidenceID:           Int
+    var serviceLineID:        Int
+    var gpsLatitude:          Double
+    var gpsLongitude:         Double
+    var gpsAccuracy:          Double
+    var photoBase64:          String
+    var capturedAt:           Date
+    var syncStatus:           String
+
+    // Cloud Vision fields
+    var visionLabels:         String   // comma-separated, e.g. "pipe,metal,corroded"
+    var visionColor:          String   // "grey" | "orange" | "dark" | "unknown"
+    var visionPipeConfirmed:  String   // "1" or "0"
+    var visionConfidence:     String   // "0.00" – "1.00"
 
     init(
-        evidenceID:    Int,
-        serviceLineID: Int,
-        gpsLatitude:   Double,
-        gpsLongitude:  Double,
-        gpsAccuracy:   Double,
-        photoBase64:   String
+        evidenceID:           Int,
+        serviceLineID:        Int,
+        gpsLatitude:          Double,
+        gpsLongitude:         Double,
+        gpsAccuracy:          Double,
+        photoBase64:          String,
+        visionLabels:         String = "",
+        visionColor:          String = "",
+        visionPipeConfirmed:  String = "0",
+        visionConfidence:     String = "0.00"
     ) {
-        self.id            = UUID()
-        self.evidenceID    = evidenceID
-        self.serviceLineID = serviceLineID
-        self.gpsLatitude   = gpsLatitude
-        self.gpsLongitude  = gpsLongitude
-        self.gpsAccuracy   = gpsAccuracy
-        self.photoBase64   = photoBase64
-        self.capturedAt    = Date()
-        self.syncStatus    = SyncStatus.pending.rawValue
+        self.id                   = UUID()
+        self.evidenceID           = evidenceID
+        self.serviceLineID        = serviceLineID
+        self.gpsLatitude          = gpsLatitude
+        self.gpsLongitude         = gpsLongitude
+        self.gpsAccuracy          = gpsAccuracy
+        self.photoBase64          = photoBase64
+        self.capturedAt           = Date()
+        self.syncStatus           = SyncStatus.pending.rawValue
+        self.visionLabels         = visionLabels
+        self.visionColor          = visionColor
+        self.visionPipeConfirmed  = visionPipeConfirmed
+        self.visionConfidence     = visionConfidence
     }
 
     var status: SyncStatus {
@@ -51,11 +65,15 @@ final class InspectionRecord {
 
 // ── Codable export model — maps to sync_processor.py JSON contract ─────────────
 struct ExportRecord: Codable {
-    let evidence_id:    Int
-    let service_line_id: Int
-    let gps_latitude:   Double
-    let gps_longitude:  Double
-    let photo_base64:   String   // clean raw Base64, no prefix
+    let evidence_id:            Int
+    let service_line_id:        Int
+    let gps_latitude:           Double
+    let gps_longitude:          Double
+    let photo_base64:           String
+    let vision_labels:          String
+    let vision_color:           String
+    let vision_pipe_confirmed:  String
+    let vision_confidence:      String
 }
 
 struct ExportPayload: Codable {

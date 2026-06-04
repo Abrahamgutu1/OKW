@@ -8,16 +8,21 @@ import SwiftData
 struct InspectionFormView: View {
 
     @Environment(\.modelContext) private var context
-    @StateObject private var location = LocationManager()
+    @StateObject private var location       = LocationManager()
+    @State private var selectedMaterial: String = ""
 
     // Form state
     @State private var serviceLineID  = ""
     @State private var evidenceID     = ""
     @State private var capturedImage: UIImage? = nil
     @State private var showCamera     = false
+    @State private var showImagePicker = false
     @State private var showSuccess    = false
     @State private var errorMessage   = ""
     @State private var showError      = false
+
+    enum Field { case serviceLineID, evidenceID }
+    @FocusState private var focusedField: Field?
 
     var body: some View {
         NavigationStack {
@@ -41,6 +46,9 @@ struct InspectionFormView: View {
                             // ── Photo capture card ──────────────────────────
                             photoCard
 
+                            // ── Material picker card ─────────────────────────
+                            materialPickerCard
+
                             // ── Submit button ───────────────────────────────
                             submitButton
 
@@ -52,8 +60,27 @@ struct InspectionFormView: View {
                 }
             }
             .navigationBarHidden(true)
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { focusedField = nil }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    if focusedField == .serviceLineID {
+                        Button("Next") { focusedField = .evidenceID }
+                            .fontWeight(.semibold)
+                            .foregroundColor(.accentTeal)
+                    } else {
+                        Button("Done") { focusedField = nil }
+                            .fontWeight(.semibold)
+                            .foregroundColor(.accentTeal)
+                    }
+                }
+            }
             .sheet(isPresented: $showCamera) {
                 CameraPicker(selectedImage: $capturedImage)
+            }
+            .sheet(isPresented: $showImagePicker) {
+                ImageLibraryPicker(selectedImage: $capturedImage)
             }
             .alert("Record Saved", isPresented: $showSuccess) {
                 Button("OK") { resetForm() }
@@ -116,7 +143,6 @@ struct InspectionFormView: View {
                 }
                 Spacer()
 
-                // Accuracy badge
                 Text(location.statusText)
                     .font(.system(size: 11, weight: .bold))
                     .padding(.horizontal, 8)
@@ -134,21 +160,44 @@ struct InspectionFormView: View {
     private var inputCard: some View {
         FieldCard {
             VStack(spacing: 14) {
-                FieldInput(
-                    label: "SERVICE LINE ID",
-                    placeholder: "e.g.  21",
-                    text: $serviceLineID,
-                    keyboardType: .numberPad
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionLabel(text: "SERVICE LINE ID")
+                    TextField("e.g.  21", text: $serviceLineID)
+                        .keyboardType(.numberPad)
+                        .focused($focusedField, equals: .serviceLineID)
+                        .font(.bodyLarge)
+                        .foregroundColor(.textPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 13)
+                        .background(Color.inputBG)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(serviceLineID.isEmpty ? Color.borderSubtle : Color.brand.opacity(0.6), lineWidth: 1)
+                        )
+                }
                 Divider()
-                FieldInput(
-                    label: "EVIDENCE ID",
-                    placeholder: "e.g.  3",
-                    text: $evidenceID,
-                    keyboardType: .numberPad
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionLabel(text: "EVIDENCE ID")
+                    TextField("e.g.  3", text: $evidenceID)
+                        .keyboardType(.numberPad)
+                        .focused($focusedField, equals: .evidenceID)
+                        .font(.bodyLarge)
+                        .foregroundColor(.textPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 13)
+                        .background(Color.inputBG)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(evidenceID.isEmpty ? Color.borderSubtle : Color.brand.opacity(0.6), lineWidth: 1)
+                        )
+                }
             }
+            .padding(14)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { focusedField = nil }
     }
 
     // ── Photo capture card ─────────────────────────────────────────────────────
@@ -179,23 +228,125 @@ struct InspectionFormView: View {
                         )
                 }
 
-                Button(action: { showCamera = true }) {
-                    Label(
-                        capturedImage == nil ? "Take Photo" : "Retake Photo",
-                        systemImage: "camera"
-                    )
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.accentTeal.opacity(0.12))
-                    .foregroundColor(.accentTeal)
-                    .cornerRadius(6)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.accentTeal, lineWidth: 1.5)
-                    )
+                HStack(spacing: 10) {
+                    // Camera button
+                    Button(action: { showCamera = true }) {
+                        Label("Camera", systemImage: "camera")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.accentTeal.opacity(0.12))
+                            .foregroundColor(.accentTeal)
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.accentTeal, lineWidth: 1.5)
+                            )
+                    }
+                    // Photo library button
+                    Button(action: { showImagePicker = true }) {
+                        Label("Library", systemImage: "photo.on.rectangle")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.accentTeal.opacity(0.12))
+                            .foregroundColor(.accentTeal)
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.accentTeal, lineWidth: 1.5)
+                            )
+                    }
                 }
             }
+        }
+    }
+
+    // ── Manual material picker card ───────────────────────────────────────────
+    private let materials: [(label: String, color: Color, risk: String)] = [
+        ("Lead",        .dangerRed,    "HIGH"),
+        ("Galvanized",  .pendingAmber, "MEDIUM"),
+        ("Copper",      .safeGreen,    "LOW"),
+        ("PVC",         .safeGreen,    "LOW"),
+        ("Unknown",     .labelGray,    "HIGH")
+    ]
+
+    private var materialPickerCard: some View {
+        FieldCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .foregroundColor(.accentTeal)
+                        .font(.system(size: 13))
+                    SectionLabel(text: "PIPE MATERIAL")
+                    Spacer()
+                    if !selectedMaterial.isEmpty {
+                        Text("✓ Selected")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.safeGreen)
+                    }
+                }
+
+                // Material buttons grid
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 8) {
+                    ForEach(materials, id: \.label) { material in
+                        Button(action: { selectedMaterial = material.label }) {
+                            VStack(spacing: 4) {
+                                Text(material.label)
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(material.risk)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .opacity(0.7)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(selectedMaterial == material.label
+                                ? material.color.opacity(0.25)
+                                : Color.inputBG)
+                            .foregroundColor(selectedMaterial == material.label
+                                ? material.color
+                                : .labelGray)
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(selectedMaterial == material.label
+                                        ? material.color
+                                        : Color.borderSubtle, lineWidth: 1.5)
+                            )
+                        }
+                    }
+                }
+
+                // Risk hint
+                if !selectedMaterial.isEmpty,
+                   let mat = materials.first(where: { $0.label == selectedMaterial }) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(mat.color)
+                            .frame(width: 7, height: 7)
+                        Text(riskLabel(selectedMaterial))
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(14)
+        }
+    }
+
+    // ── Risk helpers ───────────────────────────────────────────────────────────
+    private func riskLabel(_ material: String) -> String {
+        switch material {
+        case "Lead":       return "HIGH risk — replace required per LCRI §141.84"
+        case "Galvanized": return "MEDIUM risk — GRR classification, replacement required"
+        case "Copper":     return "LOW risk — non-lead material, no replacement required"
+        case "PVC":        return "LOW risk — non-lead material, no replacement required"
+        case "Unknown":    return "HIGH risk — treat as lead per LCRI §141.84(b)"
+        default:           return ""
         }
     }
 
@@ -218,7 +369,8 @@ struct InspectionFormView: View {
         !serviceLineID.isEmpty &&
         !evidenceID.isEmpty &&
         capturedImage != nil &&
-        location.hasValidFix
+        location.hasValidFix &&
+        !selectedMaterial.isEmpty
     }
 
     // ── Save record to SwiftData ───────────────────────────────────────────────
@@ -237,13 +389,25 @@ struct InspectionFormView: View {
             return
         }
 
+        let riskForMaterial: String = {
+            switch selectedMaterial {
+            case "Lead", "Unknown": return "HIGH"
+            case "Galvanized":      return "MEDIUM"
+            default:                return "LOW"
+            }
+        }()
+
         let record = InspectionRecord(
-            evidenceID:    evID,
-            serviceLineID: slID,
-            gpsLatitude:   location.latitude,
-            gpsLongitude:  location.longitude,
-            gpsAccuracy:   location.accuracy,
-            photoBase64:   base64
+            evidenceID:          evID,
+            serviceLineID:       slID,
+            gpsLatitude:         location.latitude,
+            gpsLongitude:        location.longitude,
+            gpsAccuracy:         location.accuracy,
+            photoBase64:         base64,
+            visionLabels:        selectedMaterial.lowercased(),
+            visionColor:         "",
+            visionPipeConfirmed: "1",
+            visionConfidence:    riskForMaterial
         )
 
         context.insert(record)
@@ -252,10 +416,9 @@ struct InspectionFormView: View {
     }
 
     private func resetForm() {
-        serviceLineID = ""
-        evidenceID    = ""
-        capturedImage = nil
+        serviceLineID    = ""
+        evidenceID       = ""
+        capturedImage    = nil
+        selectedMaterial = ""
     }
 }
-
-// FieldCard, FieldInput, StatusBadge — defined in DesignSystem.swift
