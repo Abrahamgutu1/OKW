@@ -1,66 +1,61 @@
+/* MapPanel.module.css — Dark Ops Map */
+@import 'leaflet/dist/leaflet.css';
+
 .wrap {
-  position: relative;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  height: 100%; width: 100%;
   display: flex; flex-direction: column;
-  overflow: hidden; height: 100%;
+  position: relative; overflow: hidden;
+  background: var(--bg-base);
 }
 
 .controls {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 14px;
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-200);
-  flex-shrink: 0; gap: 10px; z-index: 10;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0; z-index: 10; position: relative;
 }
-.controlsLeft  { display: flex; align-items: center; gap: 6px; }
-.controlsRight {}
-.layerLabel { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.07em; }
+
+.controlsLeft { display: flex; align-items: center; gap: 4px; }
+.layerLabel {
+  font-size: 9px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px;
+}
+
 .layerBtn {
-  font-size: 11px; font-weight: 500; color: var(--gray-600);
-  background: var(--gray-50); border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm); padding: 3px 9px;
-  cursor: pointer; font-family: var(--font-ui); transition: all 0.12s;
+  font-size: 10px; font-weight: 500; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); padding: 3px 8px;
+  cursor: pointer; font-family: var(--font-ui); transition: all 0.15s;
 }
-.layerBtn:hover  { background: var(--gray-100); color: var(--gray-800); }
+.layerBtn:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .layerActive {
-  background: var(--brand-100) !important;
-  border-color: var(--brand-500) !important;
-  color: var(--brand-700) !important;
-  font-weight: 600;
+  background: var(--brand-glow) !important;
+  color: var(--brand-400) !important;
+  border-color: rgba(56,139,253,0.4) !important;
 }
-.mapInfo { font-size: 10px; color: var(--gray-400); font-family: var(--font-mono); }
 
-.map { flex: 1; min-height: 0; height: 100%; }
+.controlsRight {}
+.mapInfo { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
 
+.map { flex: 1; min-height: 0; z-index: 1; }
+
+/* Legend */
 .legend {
-  position: absolute;
-  bottom: 32px; left: 12px;
-  background: rgba(255,255,255,0.95);
-  border: 1px solid var(--gray-200);
+  position: absolute; bottom: 28px; left: 10px;
+  background: rgba(13,17,23,0.9);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  padding: 8px 11px;
-  box-shadow: var(--shadow-sm);
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  padding: 8px 10px; z-index: 500;
+  backdrop-filter: blur(8px);
 }
 .legendTitle {
-  font-size: 9px; font-weight: 700; color: var(--gray-500);
-  text-transform: uppercase; letter-spacing: 0.08em;
-  margin-bottom: 6px;
+  font-size: 8px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
 }
 .legendItem {
   display: flex; align-items: center; gap: 6px;
-  font-size: 10px; color: var(--gray-700); margin-bottom: 4px;
+  font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;
 }
 .legendItem:last-child { margin-bottom: 0; }
-.legendDot {
-  width: 10px; height: 10px; border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  flex-shrink: 0;
-}
-.wrap { min-height: 300px; }
-.map  { height: 100% !important; min-height: 300px; }
+.legendDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }

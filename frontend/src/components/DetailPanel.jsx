@@ -31,6 +31,8 @@ export default function DetailPanel({ record, onClose }) {
   const [msg,      setMsg]      = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [tab,      setTab]      = useState('details')
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (!record) return null
 
@@ -58,6 +60,14 @@ export default function DetailPanel({ record, onClose }) {
     } finally { setLoading(false) }
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/evidence/' + record.evidence_id, { method: 'DELETE' })
+      if (res.ok) { onClose(); window.location.reload() }
+    } catch { setDeleting(false) }
+  }
+
   return (
     <div className={styles.panel}>
       {/* Header */}
@@ -68,11 +78,22 @@ export default function DetailPanel({ record, onClose }) {
             <span className={styles.separator}>·</span>
             <span className={styles.slId}>SL-{record.service_line_id}</span>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} style={{fontSize:10,fontWeight:700,color:'var(--danger-600)',background:'var(--danger-100)',border:'1px solid rgba(220,38,38,0.3)',borderRadius:3,padding:'3px 8px',cursor:'pointer'}}>Delete</button>
+            ) : (
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <span style={{fontSize:10,color:'var(--danger-600)'}}>Confirm?</span>
+                <button onClick={handleDelete} disabled={deleting} style={{fontSize:10,fontWeight:700,color:'#fff',background:'var(--danger-600)',border:'none',borderRadius:3,padding:'3px 8px',cursor:'pointer'}}>{deleting ? '…' : 'Yes'}</button>
+                <button onClick={() => setConfirmDelete(false)} style={{fontSize:10,color:'var(--gray-500)',background:'var(--gray-100)',border:'1px solid var(--gray-300)',borderRadius:3,padding:'3px 8px',cursor:'pointer'}}>No</button>
+              </div>
+            )}
+            <button className={styles.closeBtn} onClick={onClose}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div className={styles.headerStatus}>
           <span className={`badge badge-${cls}`}>

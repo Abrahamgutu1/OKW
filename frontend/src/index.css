@@ -1,66 +1,88 @@
-/* OKW FieldSync — Enterprise Utility Platform Design System */
+/* OKW FieldSync — ArcGIS/Palantir Dark Ops Design System */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* ── Dark Ops Palette (Palantir/ArcGIS Dark) ── */
+  --bg-base:     #0d1117;
+  --bg-surface:  #161b22;
+  --bg-elevated: #1c2128;
+  --bg-overlay:  #21262d;
+  --bg-input:    #0d1117;
+
+  --border-subtle:  rgba(255,255,255,0.07);
+  --border-default: rgba(255,255,255,0.12);
+  --border-strong:  rgba(255,255,255,0.2);
+
+  --text-primary:   #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted:     #484f58;
+  --text-inverse:   #0d1117;
+
   /* ── Brand ── */
   --brand-700:   #004A8F;
   --brand-600:   #0062BD;
-  --brand-500:   #0078D7;
-  --brand-400:   #2B90E8;
-  --brand-100:   #E8F2FB;
-  --brand-50:    #F0F7FF;
+  --brand-500:   #1f6feb;
+  --brand-400:   #388bfd;
+  --brand-glow:  rgba(31,111,235,0.15);
 
-  /* ── Neutral ── */
-  --gray-950:  #0A0E14;
-  --gray-900:  #111827;
-  --gray-800:  #1F2937;
-  --gray-700:  #374151;
-  --gray-600:  #4B5563;
-  --gray-500:  #6B7280;
-  --gray-400:  #9CA3AF;
-  --gray-300:  #D1D5DB;
-  --gray-200:  #E5E7EB;
-  --gray-100:  #F3F4F6;
-  --gray-50:   #F9FAFB;
-  --white:     #FFFFFF;
+  /* ── Semantic — color as data ── */
+  --danger:      #f85149;
+  --danger-dim:  rgba(248,81,73,0.12);
+  --danger-glow: rgba(248,81,73,0.25);
+  --warn:        #e3b341;
+  --warn-dim:    rgba(227,179,65,0.12);
+  --success:     #3fb950;
+  --success-dim: rgba(63,185,80,0.12);
+  --teal:        #39d3f2;
+  --teal-dim:    rgba(57,211,242,0.10);
+  --purple:      #bc8cff;
+  --purple-dim:  rgba(188,140,255,0.10);
 
-  /* ── Semantic ── */
-  --danger-700: #B91C1C;
-  --danger-600: #DC2626;
-  --danger-100: #FEE2E2;
-  --danger-50:  #FFF5F5;
+  /* Legacy aliases for existing components */
+  --gray-950:  #0d1117;
+  --gray-900:  #161b22;
+  --gray-800:  #1c2128;
+  --gray-700:  #21262d;
+  --gray-600:  #30363d;
+  --gray-500:  #484f58;
+  --gray-400:  #8b949e;
+  --gray-300:  #b1bac4;
+  --gray-200:  #21262d;
+  --gray-100:  #161b22;
+  --gray-50:   #1c2128;
+  --white:     #e6edf3;
 
-  --warn-700:  #B45309;
-  --warn-600:  #D97706;
-  --warn-100:  #FEF3C7;
-  --warn-50:   #FFFBEB;
-
-  --success-700: #15803D;
-  --success-600: #16A34A;
-  --success-100: #DCFCE7;
-  --success-50:  #F0FDF4;
-
-  --teal-600:  #0891B2;
-  --teal-100:  #CFFAFE;
-  --teal-50:   #ECFEFF;
+  --danger-700: #f85149;
+  --danger-600: #f85149;
+  --danger-100: rgba(248,81,73,0.12);
+  --danger-50:  rgba(248,81,73,0.06);
+  --warn-700:   #e3b341;
+  --warn-600:   #e3b341;
+  --warn-100:   rgba(227,179,65,0.12);
+  --warn-50:    rgba(227,179,65,0.06);
+  --success-700: #3fb950;
+  --success-600: #3fb950;
+  --success-100: rgba(63,185,80,0.12);
+  --success-50:  rgba(63,185,80,0.06);
+  --teal-600:   #39d3f2;
+  --teal-100:   rgba(57,211,242,0.10);
+  --teal-50:    rgba(57,211,242,0.06);
 
   /* ── Layout ── */
-  --sidebar-width: 220px;
-  --topbar-height: 52px;
-  --tabbar-height: 40px;
+  --sidebar-width: 200px;
+  --topbar-height: 44px;
 
   /* ── Shadows ── */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
 
   /* ── Border radius ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
 
   /* ── Fonts ── */
   --font-ui:   'IBM Plex Sans', system-ui, sans-serif;
@@ -69,36 +91,51 @@
 
 html, body {
   height: 100%;
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 #root { height: 100%; display: flex; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--gray-100); }
-::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-/* ── Utilities ── */
-.mono   { font-family: var(--font-mono) !important; }
+.mono { font-family: var(--font-mono) !important; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 
-/* ── Badge base ── */
+/* ── Badges ── */
 .badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
-  padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+  white-space: nowrap; font-family: var(--font-mono);
 }
-.badge-danger  { background: var(--danger-100); color: var(--danger-700); border: 1px solid rgba(220,38,38,0.2); }
-.badge-warn    { background: var(--warn-100);   color: var(--warn-700);   border: 1px solid rgba(217,119,6,0.2); }
-.badge-success { background: var(--success-100);color: var(--success-700);border: 1px solid rgba(22,163,74,0.2); }
-.badge-brand   { background: var(--brand-100);  color: var(--brand-700);  border: 1px solid rgba(0,120,215,0.2); }
-.badge-neutral { background: var(--gray-100);   color: var(--gray-600);   border: 1px solid var(--gray-300); }
+.badge-danger  { background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(248,81,73,0.3); }
+.badge-warn    { background: var(--warn-dim);    color: var(--warn);    border: 1px solid rgba(227,179,65,0.3); }
+.badge-success { background: var(--success-dim); color: var(--success); border: 1px solid rgba(63,185,80,0.3); }
+.badge-brand   { background: var(--brand-glow);  color: var(--brand-400); border: 1px solid rgba(56,139,253,0.3); }
+.badge-neutral { background: var(--bg-overlay);  color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+
+/* ── Animated pulse for live indicators ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

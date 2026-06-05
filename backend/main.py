@@ -3,6 +3,7 @@ OKW FieldSync — FastAPI Backend
 Run: uvicorn main:app --reload --port 8000 --host 0.0.0.0
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -12,6 +13,10 @@ from datetime import datetime
 import random
 
 app = FastAPI(title="OKW FieldSync API", version="2.0")
+# Serve field photos statically
+PHOTOS_DIR = os.path.join(WORKSPACE if "WORKSPACE" in dir() else os.path.expanduser("~/Desktop/OKW FieldSync"), "FieldPhotos")
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+
 app.add_middleware(CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -21,6 +26,12 @@ DB_PASS = "Awesomekid123"
 DB_DSN  = "localhost:1521/FREEPDB1"
 WORKSPACE = os.path.expanduser("~/Desktop/OKW FieldSync")
 PWSID = "OK1020401"
+
+# Mount photos for browser access
+try:
+    app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
+except:
+    pass
 
 INSPECTOR_REGISTRY = {
     "PIN-9402": "A. Mutu (Badge #402)",
@@ -65,7 +76,7 @@ def upload_inspection(body: InspectionUpload):
         timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename    = f"EV{body.evidence_id}_SL{body.service_line_id}_{timestamp}.jpg"
         photo_path  = os.path.join(photos_dir, filename)
-        photo_url   = f"file://{photo_path}"
+        photo_url   = f"http://localhost:8000/photos/{filename}"
 
         try:
             img_data = base64.b64decode(body.image_base64)
@@ -302,6 +313,21 @@ def seed_demo_data():
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Delete all records (dev only) ──────────────────────────────────────────────
+
+@app.delete("/api/evidence/{evidence_id}")
+def delete_evidence(evidence_id: int):
+    try:
+        conn = get_conn(); cursor = conn.cursor()
+        cursor.execute("DELETE FROM SYSTEM.EVIDENCE WHERE EVIDENCE_ID = :1", (evidence_id,))
+        if cursor.rowcount == 0:
+            cursor.close(); conn.close()
+            raise HTTPException(status_code=404, detail=f"EV-{evidence_id} not found")
+        conn.commit(); cursor.close(); conn.close()
+        return {"status": "ok", "message": f"EV-{evidence_id} deleted"}
+    except HTTPException: raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/reset")
 def reset_data():
     """WARNING: Deletes all evidence records. Dev use only."""

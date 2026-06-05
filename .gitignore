@@ -27,4 +27,4 @@ compliance_report.out
 FieldPhotos/
 SyncDrop/*.processed
 PipeVisionDataset/images/
-PipeVisionModels/
+# PipeVisionModels/

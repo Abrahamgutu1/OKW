@@ -1,41 +1,79 @@
-// App.jsx — OKW FieldSync Enterprise Platform
-import React, { useState } from 'react'
-import { useData }      from './hooks/useData'
-import Sidebar          from './components/Sidebar'
-import Topbar           from './components/Topbar'
-import AlertBanner      from './components/AlertBanner'
-import KPICards         from './components/KPICards'
-import DataTable        from './components/DataTable'
-import MapPanel         from './components/MapPanel'
-import DetailPanel      from './components/DetailPanel'
-import styles           from './App.module.css'
+// App.jsx — OKW FieldSync · ArcGIS/Palantir/Fulcrum Dark Ops
+import React, { useState, useEffect } from 'react'
+import { useData }    from './hooks/useData'
+import Sidebar        from './components/Sidebar'
+import Topbar         from './components/Topbar'
+import AlertBanner    from './components/AlertBanner'
+import DataTable      from './components/DataTable'
+import MapPanel       from './components/MapPanel'
+import DetailPanel    from './components/DetailPanel'
+import styles         from './App.module.css'
 
+// ── Animated counter ──────────────────────────────────────────────────────────
+function AnimatedNum({ value, color }) {
+  const [display, setDisplay] = useState(0)
+  useEffect(() => {
+    if (value == null) return
+    const target = Number(value)
+    const duration = 600
+    const steps = 20
+    const step = target / steps
+    let current = 0
+    let count = 0
+    const timer = setInterval(() => {
+      count++
+      current = Math.min(Math.round(step * count), target)
+      setDisplay(current)
+      if (count >= steps) clearInterval(timer)
+    }, duration / steps)
+    return () => clearInterval(timer)
+  }, [value])
+  return <span style={{ color }}>{display ?? '—'}</span>
+}
+
+// ── Deadline countdown ────────────────────────────────────────────────────────
+function DeadlineCountdown() {
+  const deadline = new Date('2027-11-01')
+  const now = new Date()
+  const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24))
+  const urgency = days < 90 ? '#f85149' : days < 180 ? '#e3b341' : '#8b949e'
+  return (
+    <div className={styles.deadlinePill} style={{ borderColor: `${urgency}33`, color: urgency }}>
+      <div className={styles.deadlineDot} style={{ background: urgency }} />
+      {days}d to LCRI deadline · Nov 1 2027
+    </div>
+  )
+}
+
+// ── Reports page ──────────────────────────────────────────────────────────────
 function ReportsPage({ kpis }) {
-  const [status,   setStatus]   = React.useState(null)
-  const [loading,  setLoading]  = React.useState(false)
-  const [pdfReady, setPdfReady] = React.useState(false)
+  const [status,  setStatus]  = React.useState(null)
+  const [loading, setLoading] = React.useState(false)
+  const [step,    setStep]    = React.useState(null)
+
+  const STEPS = ['Querying Oracle', 'Compiling Assets', 'Validating Layout', 'Typesetting LaTeX', 'Ready']
 
   async function handleGenerate() {
-    setLoading(true)
-    setStatus(null)
-    setPdfReady(false)
+    setLoading(true); setStatus(null)
+    for (let i = 0; i < STEPS.length - 1; i++) {
+      setStep(STEPS[i])
+      await new Promise(r => setTimeout(r, 400))
+    }
     try {
       const res = await fetch('/api/report', { method: 'POST' })
       if (res.ok) {
         const blob = await res.blob()
         const url  = window.URL.createObjectURL(blob)
         const a    = document.createElement('a')
-        a.href     = url
-        a.download = `OKW_ODEQ_Compliance_${new Date().toISOString().slice(0,10)}.pdf`
-        a.click()
-        window.URL.revokeObjectURL(url)
-        setStatus({ type: 'success', text: 'Report compiled and downloaded successfully.' })
-        setPdfReady(true)
+        a.href = url; a.download = `OKW_ODEQ_${new Date().toISOString().slice(0,10)}.pdf`
+        a.click(); window.URL.revokeObjectURL(url)
+        setStep('Ready')
+        setStatus({ type: 'success', text: 'Report compiled and downloaded.' })
       } else {
-        const json = await res.json()
-        setStatus({ type: 'error', text: json.detail || 'Compilation failed.' })
+        const j = await res.json()
+        setStatus({ type: 'error', text: j.detail || 'Compilation failed.' })
       }
-    } catch (e) {
+    } catch {
       setStatus({ type: 'error', text: 'Network error — is the API running?' })
     } finally {
       setLoading(false)
@@ -43,141 +81,126 @@ function ReportsPage({ kpis }) {
   }
 
   return (
-    <div style={{height:'100%', overflowY:'auto', padding:20}}>
-      <div style={{maxWidth:640}}>
-        {/* Header card */}
+    <div style={{ height: '100%', overflowY: 'auto', padding: 20 }}>
+      <div style={{ maxWidth: 560 }}>
+        {/* Header */}
         <div style={{
-          background:'#fff', border:'1px solid var(--gray-200)',
-          borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow-sm)',
-          overflow:'hidden', marginBottom:16
+          background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 12
         }}>
           <div style={{
-            background:'var(--brand-700)', padding:'20px 24px',
-            borderBottom:'1px solid var(--gray-200)'
+            background: 'linear-gradient(135deg, #004A8F 0%, #0062BD 100%)',
+            padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)'
           }}>
-            <div style={{fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.6)',
-              textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6}}>
-              COMPLIANCE · REPORTS
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>
+              COMPLIANCE · ODEQ SUBMISSION
             </div>
-            <h2 style={{fontSize:18, fontWeight:700, color:'#fff', margin:0}}>
-              ODEQ Compliance Audit Report
-            </h2>
-            <p style={{fontSize:12, color:'rgba(255,255,255,0.7)', margin:'4px 0 0'}}>
-              Oklahoma Lead & Copper Rule Revisions · 40 CFR §141 · PWSID OK1020401
-            </p>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Lead Service Line Inventory Audit Report</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
+              40 CFR §141.84 · Oklahoma DEQ · PWSID OK1020401
+            </div>
           </div>
 
-          <div style={{padding:'20px 24px'}}>
+          <div style={{ padding: '14px 18px' }}>
             {/* Stats */}
-            <div style={{
-              display:'grid', gridTemplateColumns:'repeat(4,1fr)',
-              gap:12, marginBottom:20
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
               {[
-                { label:'Records',  value: kpis?.total    ?? 0, color:'var(--brand-600)' },
-                { label:'Flagged',  value: kpis?.suspect  ?? 0, color:'var(--danger-600)' },
-                { label:'Verified', value: kpis?.verified ?? 0, color:'var(--success-600)' },
-                { label:'Pending',  value: kpis?.pending  ?? 0, color:'var(--warn-600)' },
+                { label: 'Records',  value: kpis?.total    ?? 0, color: 'var(--brand-400)' },
+                { label: 'Flagged',  value: kpis?.suspect  ?? 0, color: 'var(--danger)' },
+                { label: 'Verified', value: kpis?.verified ?? 0, color: 'var(--success)' },
+                { label: 'Pending',  value: kpis?.pending  ?? 0, color: 'var(--warn)' },
               ].map(s => (
                 <div key={s.label} style={{
-                  background:'var(--gray-50)', border:'1px solid var(--gray-200)',
-                  borderRadius:'var(--radius-md)', padding:'12px 14px', textAlign:'center'
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)', padding: '8px 10px', textAlign: 'center'
                 }}>
-                  <div style={{fontSize:24, fontWeight:700, fontFamily:'var(--font-mono)', color:s.color}}>
-                    {s.value}
-                  </div>
-                  <div style={{fontSize:10, color:'var(--gray-500)', textTransform:'uppercase',
-                    letterSpacing:'0.07em', marginTop:2}}>{s.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Info */}
-            <div style={{
-              background:'var(--gray-50)', border:'1px solid var(--gray-200)',
-              borderRadius:'var(--radius-md)', padding:'12px 14px',
-              marginBottom:20, fontSize:12, color:'var(--gray-600)', lineHeight:1.8
-            }}>
-              <strong style={{color:'var(--gray-800)'}}>What this generates:</strong> A legally binding
-              LaTeX/PDF audit document including all evidence records, AI classification scores,
-              inspector sign-offs, GPS coordinates, and a formal legal attestation section —
-              formatted for official ODEQ LSLI submission.<br/>
-              <span style={{color:'var(--warn-700)'}}>
-                ⚠ Requires <code style={{background:'var(--gray-100)',padding:'1px 4px',borderRadius:3,
-                fontFamily:'var(--font-mono)',fontSize:11}}>pdflatex</code> installed:
-                <code style={{background:'var(--gray-100)',padding:'1px 4px',borderRadius:3,
-                fontFamily:'var(--font-mono)',fontSize:11, marginLeft:6}}>brew install --cask mactex</code>
-              </span>
-            </div>
-
-            {/* Status message */}
-            {status && (
-              <div style={{
-                padding:'10px 14px', borderRadius:'var(--radius-md)',
-                marginBottom:16, fontSize:12,
-                background: status.type === 'success' ? 'var(--success-100)' : 'var(--danger-100)',
-                color: status.type === 'success' ? 'var(--success-700)' : 'var(--danger-700)',
-                border: `1px solid ${status.type === 'success' ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`
-              }}>
-                {status.type === 'success' ? '✅' : '❌'} {status.text}
+            {/* Progress steps */}
+            {loading && (
+              <div style={{ marginBottom: 14 }}>
+                {STEPS.map((s, i) => {
+                  const done    = STEPS.indexOf(step) > i
+                  const current = step === s
+                  return (
+                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                      <div style={{
+                        width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                        background: done ? 'var(--success)' : current ? 'var(--brand-500)' : 'var(--bg-overlay)',
+                        border: `1px solid ${done ? 'var(--success)' : current ? 'var(--brand-400)' : 'var(--border-subtle)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 8, color: '#fff'
+                      }}>
+                        {done ? '✓' : current ? '●' : ''}
+                      </div>
+                      <span style={{
+                        fontSize: 11, fontFamily: 'var(--font-mono)',
+                        color: done ? 'var(--success)' : current ? 'var(--text-primary)' : 'var(--text-muted)'
+                      }}>{s}</span>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
-            {/* Generate button */}
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              style={{
-                width:'100%', padding:'12px 20px',
-                background: loading ? 'var(--gray-300)' : 'var(--brand-600)',
-                color: loading ? 'var(--gray-500)' : '#fff',
-                border:'none', borderRadius:'var(--radius-md)',
-                fontSize:14, fontWeight:700, cursor: loading ? 'not-allowed' : 'pointer',
-                fontFamily:'var(--font-ui)',
-                boxShadow: loading ? 'none' : '0 2px 4px rgba(0,98,189,0.3)',
-                transition:'all 0.15s', display:'flex', alignItems:'center',
-                justifyContent:'center', gap:8
-              }}
-            >
-              {loading ? (
-                <>
-                  <span style={{display:'inline-block',animation:'spin 1s linear infinite'}}>⟳</span>
-                  Compiling LaTeX Report…
-                </>
-              ) : (
-                <>📄 Generate & Download ODEQ Compliance Report</>
-              )}
+            {status && (
+              <div style={{
+                padding: '8px 12px', borderRadius: 'var(--radius-md)', marginBottom: 12,
+                fontSize: 11, fontFamily: 'var(--font-mono)',
+                background: status.type === 'success' ? 'var(--success-dim)' : 'var(--danger-dim)',
+                color: status.type === 'success' ? 'var(--success)' : 'var(--danger)',
+                border: `1px solid ${status.type === 'success' ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'}`
+              }}>
+                {status.type === 'success' ? '✓' : '✗'} {status.text}
+              </div>
+            )}
+
+            <button onClick={handleGenerate} disabled={loading} style={{
+              width: '100%', padding: '10px 16px',
+              background: loading ? 'var(--bg-overlay)' : 'var(--brand-500)',
+              color: loading ? 'var(--text-muted)' : '#fff',
+              border: '1px solid ' + (loading ? 'var(--border-subtle)' : 'transparent'),
+              borderRadius: 'var(--radius-md)', fontSize: 12, fontWeight: 700,
+              cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-ui)',
+              transition: 'all 0.15s'
+            }}>
+              {loading ? `${step}…` : '↓ Generate ODEQ Compliance Report (PDF)'}
             </button>
-            <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, fontFamily: 'var(--font-mono)' }}>
+              Requires pdflatex · <code style={{ color: 'var(--teal)' }}>brew install --cask mactex</code>
+            </div>
           </div>
         </div>
 
-        {/* Compliance framework card */}
+        {/* Regulatory table */}
         <div style={{
-          background:'#fff', border:'1px solid var(--gray-200)',
-          borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow-sm)', padding:'16px 20px'
+          background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)', overflow: 'hidden'
         }}>
-          <div style={{fontSize:10, fontWeight:700, color:'var(--gray-500)',
-            textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12}}>
-            Regulatory Framework
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              REGULATORY FRAMEWORK
+            </span>
           </div>
           {[
-            ['Authority',        'Oklahoma Department of Environmental Quality (ODEQ)'],
-            ['Federal Rule',     '40 CFR Part 141 — Lead & Copper Rule Revisions (LCRR/LCRI)'],
-            ['State Code',       'Oklahoma Administrative Code 252:641'],
-            ['PWSID',            'OK1020401'],
-            ['1987 Lead Ban',    'Installations ≥1987 auto-classified NON-LEAD per Safe Drinking Water Act'],
-            ['AI Engine',        'PIPE_VISION_AI · ResNet-50 v1-12 · Cosine Distance Threshold: 0.35'],
-            ['Report Format',    'LaTeX typeset PDF · ISO A4 · Legally certifiable'],
-          ].map(([label, value]) => (
-            <div key={label} style={{
-              display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-              padding:'8px 0', borderBottom:'1px solid var(--gray-100)', gap:16
+            ['Authority',     'Oklahoma Department of Environmental Quality (ODEQ)'],
+            ['Federal Rule',  '40 CFR Part 141 — LCRR/LCRI'],
+            ['State Code',    'Oklahoma Administrative Code 252:641'],
+            ['PWSID',         'OK1020401'],
+            ['AI Engine',     'PIPE_VISION_AI · ResNet-50 · Cosine ≤ 0.35'],
+            ['Format',        'LaTeX PDF · ISO A4 · Legally certifiable'],
+          ].map(([l, v]) => (
+            <div key={l} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '7px 14px', borderBottom: '1px solid var(--border-subtle)'
             }}>
-              <span style={{fontSize:11, color:'var(--gray-500)', fontWeight:600,
-                textTransform:'uppercase', letterSpacing:'0.05em', flexShrink:0, width:140}}>{label}</span>
-              <span style={{fontSize:11, color:'var(--gray-700)', textAlign:'right',
-                fontFamily:'var(--font-mono)'}}>{value}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', width: 120, flexShrink: 0 }}>{l}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{v}</span>
             </div>
           ))}
         </div>
@@ -186,14 +209,26 @@ function ReportsPage({ kpis }) {
   )
 }
 
+// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const { data, loading, error, refresh, lastRefresh } = useData()
   const [page,     setPage]     = useState('dashboard')
   const [selected, setSelected] = useState(null)
+  const [mapBounds, setMapBounds] = useState(null)
 
   const records   = data?.records || []
   const kpis      = data?.kpis
   const connected = !!data && !error
+
+  // Filter records by current map bounds (ArcGIS bidirectional filtering)
+  const visibleRecords = mapBounds
+    ? records.filter(r =>
+        r.gps_latitude  >= mapBounds.south &&
+        r.gps_latitude  <= mapBounds.north &&
+        r.gps_longitude >= mapBounds.west  &&
+        r.gps_longitude <= mapBounds.east
+      )
+    : records
 
   const suspects = records.filter(r =>
     r.ai_distance !== null && r.ai_distance < 0.35 && r.user_verified_status === 'UNVERIFIED'
@@ -204,160 +239,155 @@ export default function App() {
     if (page !== 'inventory') setPage('inventory')
   }
 
+  function handleMapSelect(rec) {
+    setSelected(rec)
+  }
+
   return (
     <div className={styles.shell}>
-      {/* ── Sidebar ── */}
       <Sidebar activePage={page} onNavigate={p => { setPage(p); if (p !== 'inventory') setSelected(null) }} />
 
-      {/* ── Main area ── */}
       <div className={styles.main}>
-        <Topbar
-          page={page}
-          connected={connected}
-          lastRefresh={lastRefresh}
-          onRefresh={refresh}
-          alertCount={suspects}
-        />
-
-        {/* Alert banner */}
+        <Topbar page={page} connected={connected} lastRefresh={lastRefresh} onRefresh={refresh} alertCount={suspects} />
         <AlertBanner records={records} />
 
-        {/* Connection error */}
         {error && !loading && (
           <div className={styles.errorStrip}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
               <path d="M12 8v4m0 4h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            <span>
-              Cannot reach API — ensure <code>uvicorn main:app --port 8000</code> is running and Oracle is up.
-            </span>
+            Cannot reach API — ensure <code>uvicorn main:app --port 8000</code> is running and Oracle is up.
             <button className={styles.retryBtn} onClick={refresh}>Retry connection</button>
           </div>
         )}
 
-        {/* ── Page content ── */}
         <div className={styles.content}>
 
-          {/* DASHBOARD */}
+          {/* ── DASHBOARD ── ArcGIS operational layout */}
           {page === 'dashboard' && (
             <div className={styles.dashLayout}>
+
+              {/* Header row */}
               <div className={styles.dashHeader}>
-                <div>
-                  <h2 className={styles.dashTitle}>Lead Service Line Inventory Overview</h2>
-                  <p className={styles.dashSub}>
-                    Oklahoma City Public Works · ODEQ LCRR/LCRI Compliance · PWSID OK1020401
-                  </p>
+                <div className={styles.dashTitleBlock}>
+                  <div className={styles.dashTitle}>Lead Service Line Inventory — Operational View</div>
+                  <div className={styles.dashSub}>Oklahoma City Public Works · ODEQ LCRR/LCRI · PWSID OK1020401</div>
                 </div>
                 <div className={styles.dashActions}>
-                  <button className={styles.btnSecondary} onClick={() => setPage('inventory')}>
-                    View Inventory →
-                  </button>
-                  <button className={styles.btnPrimary} onClick={() => setPage('map')}>
-                    Open Map
-                  </button>
+                  <DeadlineCountdown />
+                  <button className={styles.btnSecondary} onClick={() => setPage('inventory')}>Inventory →</button>
+                  <button className={styles.btnPrimary} onClick={() => setPage('reports')}>Generate Report</button>
                 </div>
               </div>
 
-              <KPICards kpis={kpis} />
-
-              <div className={styles.dashGrid}>
-                {/* Recent records */}
-                <div className={styles.dashCard}>
-                  <div className={styles.cardHeader}>
-                    <span className={styles.cardTitle}>Recent Evidence Records</span>
-                    <button className={styles.cardAction} onClick={() => setPage('inventory')}>View all →</button>
+              {/* KPI strip */}
+              <div className={styles.kpiStrip}>
+                {[
+                  { label: 'Total Records',      value: kpis?.total,     sub: `${kpis?.lines ?? 0} service lines`, color: 'kpiBlue'  },
+                  { label: 'Lead Suspect',        value: kpis?.suspect,   sub: 'AI distance < 0.35',                color: 'kpiRed'   },
+                  { label: 'Inspector Verified',  value: kpis?.verified,  sub: 'Signed off on record',              color: 'kpiGreen' },
+                  { label: 'Pending Review',      value: kpis?.pending,   sub: 'Awaiting field inspection',         color: 'kpiAmber' },
+                  { label: 'Photo Evidence',      value: kpis?.has_photo, sub: 'Images on record',                  color: 'kpiTeal'  },
+                  {
+                    label: 'Inventory Progress',
+                    value: kpis?.total ? `${Math.round((kpis.verified / kpis.total) * 100)}%` : '0%',
+                    sub: 'of total classified',
+                    color: 'kpiGreen'
+                  },
+                ].map(k => (
+                  <div key={k.label} className={`${styles.kpiItem} ${styles[k.color]}`}>
+                    <div className={styles.kpiLabel}>{k.label}</div>
+                    <div className={styles.kpiValue}>{k.value ?? '—'}</div>
+                    <div className={styles.kpiSub}>{k.sub}</div>
                   </div>
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>EV</th><th>SL</th><th>Status</th><th>AI Score</th><th>Inspector</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {records.slice(0,6).map(rec => {
-                        const d = rec.ai_distance
-                        const isLead = d !== null && d !== undefined && d < 0.35
-                        const isVerified = rec.user_verified_status?.includes('CONFIRMED')
-                        return (
-                          <tr key={rec.evidence_id} onClick={() => handleSelect(rec)} className={styles.miniRow}>
-                            <td className="mono">EV-{rec.evidence_id}</td>
-                            <td className="mono">SL-{rec.service_line_id}</td>
-                            <td>
-                              <span className={`badge ${isVerified ? 'badge-success' : isLead ? 'badge-danger' : 'badge-neutral'}`}>
-                                {isVerified ? '✓ Verified' : isLead ? '⚠ Suspect' : '○ Clear'}
-                              </span>
-                            </td>
-                            <td className="mono" style={{color: isLead ? 'var(--danger-600)' : 'var(--success-600)', fontWeight:600}}>
-                              {d !== null && d !== undefined ? Number(d).toFixed(4) : 'N/A'}
-                            </td>
-                            <td style={{color:'var(--gray-500)', fontSize:11}}>{rec.audited_by || '—'}</td>
-                          </tr>
-                        )
-                      })}
-                      {records.length === 0 &&
-                        <tr><td colSpan={5} style={{textAlign:'center', color:'var(--gray-400)', padding:20, fontSize:12}}>
-                          {loading ? 'Loading…' : 'No records — check database connection'}
-                        </td></tr>
-                      }
-                    </tbody>
-                  </table>
+                ))}
+              </div>
+
+              {/* Map — left, full height */}
+              <div className={styles.dashBody}>
+                <div className={styles.dashMap}>
+                  <MapPanel
+                    records={records}
+                    selectedId={selected?.evidence_id}
+                    onSelect={handleMapSelect}
+                    onBoundsChange={setMapBounds}
+                  />
                 </div>
+              </div>
 
-                {/* Compliance summary */}
-                <div className={styles.dashCard}>
-                  <div className={styles.cardHeader}>
-                    <span className={styles.cardTitle}>Compliance Summary</span>
-                    <span className={styles.cardBadge}>LCRR 2026</span>
+              {/* Right panel — records + compliance */}
+              <div className={styles.dashRight}>
+                <div className={styles.rightPanel}>
+                  <div className={styles.rightPanelHeader}>
+                    <span className={styles.rightPanelTitle}>
+                      {mapBounds ? `${visibleRecords.length} in view` : 'Recent Records'}
+                    </span>
+                    <button className={styles.rightPanelAction} onClick={() => setPage('inventory')}>View all →</button>
                   </div>
-                  <div className={styles.complianceRows}>
-                    {[
-                      { label: 'Total Service Lines',    value: kpis?.lines,    color: 'var(--brand-600)' },
-                      { label: 'Lead Suspect (AI)',       value: kpis?.suspect,  color: 'var(--danger-600)' },
-                      { label: 'Inspector Verified',      value: kpis?.verified, color: 'var(--success-600)' },
-                      { label: 'Pending Review',          value: kpis?.pending,  color: 'var(--warn-600)' },
-                      { label: 'Photo Evidence on Record',value: kpis?.has_photo,color: 'var(--teal-600)' },
-                    ].map(row => (
-                      <div key={row.label} className={styles.compRow}>
-                        <span className={styles.compLabel}>{row.label}</span>
-                        <div className={styles.compRight}>
-                          <div className={styles.compBar}>
-                            <div style={{
-                              width: `${kpis?.total ? Math.min((row.value/kpis.total)*100,100) : 0}%`,
-                              background: row.color, height:'100%', borderRadius:2, transition:'width 0.4s'
-                            }}/>
-                          </div>
-                          <span className={styles.compVal} style={{color: row.color}}>{row.value ?? '—'}</span>
+                  <div className={styles.recordFeed}>
+                    {(mapBounds ? visibleRecords : records).slice(0, 30).map(rec => {
+                      const d = rec.ai_distance
+                      const isLead = d !== null && d !== undefined && d < 0.35
+                      const isVerified = rec.user_verified_status?.includes('CONFIRMED')
+                      const scoreColor = isLead ? 'var(--danger)' : 'var(--success)'
+                      return (
+                        <div
+                          key={rec.evidence_id}
+                          className={`${styles.feedRow} ${selected?.evidence_id === rec.evidence_id ? styles.feedSelected : ''}`}
+                          onClick={() => setSelected(rec)}
+                        >
+                          <span className={styles.feedRowId}>EV-{rec.evidence_id}</span>
+                          <span className={styles.feedRowStatus}>
+                            <span className={`badge ${isVerified ? 'badge-success' : isLead ? 'badge-danger' : 'badge-neutral'}`}>
+                              {isVerified ? '✓ Verified' : isLead ? '⚠ Suspect' : '○ Clear'}
+                            </span>
+                          </span>
+                          <span className={styles.feedRowScore} style={{ color: scoreColor }}>
+                            {d !== null && d !== undefined ? Number(d).toFixed(3) : 'N/A'}
+                          </span>
                         </div>
+                      )
+                    })}
+                    {records.length === 0 && (
+                      <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
+                        {loading ? 'Loading…' : 'No records'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Compliance mini bars */}
+                  <div className={styles.compliancePanel}>
+                    <div className={styles.compPanelTitle}>Compliance Summary</div>
+                    {[
+                      { label: 'Lead Suspect',  value: kpis?.suspect,  total: kpis?.total, color: 'var(--danger)' },
+                      { label: 'Verified',      value: kpis?.verified, total: kpis?.total, color: 'var(--success)' },
+                      { label: 'Pending',       value: kpis?.pending,  total: kpis?.total, color: 'var(--warn)' },
+                      { label: 'Photo Evidence',value: kpis?.has_photo,total: kpis?.total, color: 'var(--teal)' },
+                    ].map(r => (
+                      <div key={r.label} className={styles.compRow}>
+                        <span className={styles.compRowLabel}>{r.label}</span>
+                        <div className={styles.compRowBar}>
+                          <div className={styles.compRowFill} style={{
+                            width: `${r.total ? Math.min((r.value / r.total) * 100, 100) : 0}%`,
+                            background: r.color
+                          }} />
+                        </div>
+                        <span className={styles.compRowVal} style={{ color: r.color }}>{r.value ?? '—'}</span>
                       </div>
                     ))}
                   </div>
-                  <div className={styles.complianceFoot}>
-                    <span>Authority: Oklahoma DEQ</span>
-                    <span>Framework: 40 CFR §141</span>
-                    <span>PWSID: OK1020401</span>
-                  </div>
-                </div>
-
-                {/* Mini map */}
-                <div className={styles.dashCard} style={{gridColumn:'1/-1', height:320}}>
-                  <div className={styles.cardHeader}>
-                    <span className={styles.cardTitle}>Service Line Field Locations</span>
-                    <button className={styles.cardAction} onClick={() => setPage('map')}>Full map →</button>
-                  </div>
-                  <div style={{flex:1, minHeight:0}}>
-                    <MapPanel records={records} selectedId={selected?.evidence_id} onSelect={handleSelect} />
-                  </div>
                 </div>
               </div>
+
             </div>
           )}
 
-          {/* INVENTORY */}
+          {/* ── INVENTORY — Fulcrum slide-out drawer ── */}
           {page === 'inventory' && (
             <div className={styles.inventoryLayout}>
               <div className={styles.inventoryTable}>
-                <DataTable records={records} onSelect={handleSelect} selectedId={selected?.evidence_id} />
+                <DataTable records={records} onSelect={setSelected} selectedId={selected?.evidence_id} />
               </div>
               {selected && (
                 <div className={styles.inventoryPanel}>
@@ -367,20 +397,25 @@ export default function App() {
             </div>
           )}
 
-          {/* MAP */}
+          {/* ── MAP ── */}
           {page === 'map' && (
             <div className={styles.mapPage}>
-              <MapPanel records={records} selectedId={selected?.evidence_id} onSelect={handleSelect} />
+              <MapPanel
+                records={records}
+                selectedId={selected?.evidence_id}
+                onSelect={handleMapSelect}
+                onBoundsChange={setMapBounds}
+              />
             </div>
           )}
 
-          {/* INSPECTIONS */}
+          {/* ── INSPECTIONS ── */}
           {page === 'inspection' && (
             <div className={styles.inspectionPage}>
               <div className={styles.inspectionList}>
                 <DataTable
                   records={records.filter(r => r.ai_distance !== null && r.ai_distance < 0.35)}
-                  onSelect={handleSelect}
+                  onSelect={setSelected}
                   selectedId={selected?.evidence_id}
                 />
               </div>
@@ -392,24 +427,22 @@ export default function App() {
             </div>
           )}
 
-          {/* REPORTS */}
-          {page === 'reports' && (
-            <ReportsPage kpis={kpis} />
-          )}
+          {/* ── REPORTS ── */}
+          {page === 'reports' && <ReportsPage kpis={kpis} />}
 
-          {/* SETTINGS */}
+          {/* ── SETTINGS ── */}
           {page === 'settings' && (
             <div className={styles.settingsPage}>
               <div className={styles.settingsCard}>
-                <h3 className={styles.settingsTitle}>⚙ System Configuration</h3>
+                <div className={styles.settingsTitle}>System Configuration</div>
                 <div className={styles.settingsList}>
                   {[
-                    { label: 'Oracle Database',  value: 'localhost:1521/FREEPDB1', type: 'connection' },
-                    { label: 'API Backend',       value: 'localhost:8000',         type: 'connection' },
-                    { label: 'PWSID',             value: 'OK1020401',              type: 'info' },
-                    { label: 'AI Engine',         value: 'PIPE_VISION_AI ResNet-50 v1-12', type: 'info' },
-                    { label: 'Vector Threshold',  value: '< 0.35 (Lead Suspect)',  type: 'info' },
-                    { label: 'Regulatory',        value: 'ODEQ LCRR/LCRI · 40 CFR §141', type: 'info' },
+                    { label: 'Oracle Database',  value: 'localhost:1521/FREEPDB1' },
+                    { label: 'API Backend',       value: 'localhost:8000' },
+                    { label: 'PWSID',             value: 'OK1020401' },
+                    { label: 'AI Engine',         value: 'PIPE_VISION_AI ResNet-50 v1-12' },
+                    { label: 'Vector Threshold',  value: '< 0.35 (Lead Suspect)' },
+                    { label: 'Regulatory',        value: 'ODEQ LCRR/LCRI · 40 CFR §141' },
                   ].map(s => (
                     <div key={s.label} className={styles.settingRow}>
                       <span className={styles.settingLabel}>{s.label}</span>
@@ -426,8 +459,9 @@ export default function App() {
         {/* Footer */}
         <div className={styles.footer}>
           <span>OKW FieldSync v2.0 · Oracle 23ai · PWSID OK1020401 · ODEQ 2026</span>
-          <span style={{color:'var(--teal-600)'}}>
-            {data?.vec_ok ? '⬡ VECTOR_DISTANCE Active' : '◇ Standard Query'}
+          <span className={styles.footerLive}>
+            <span className={styles.footerDot} />
+            {data?.vec_ok ? 'VECTOR_DISTANCE Active' : 'Standard Query'}
           </span>
         </div>
       </div>
