@@ -248,7 +248,6 @@ export default function App() {
       <Sidebar activePage={page} onNavigate={p => { setPage(p); if (p !== 'inventory') setSelected(null) }} />
 
       <div className={styles.main}>
-        <Topbar page={page} connected={connected} lastRefresh={lastRefresh} onRefresh={refresh} alertCount={suspects} />
         <AlertBanner records={records} />
 
         {error && !loading && (
@@ -399,7 +398,7 @@ export default function App() {
 
           {/* ── MAP ── */}
           {page === 'map' && (
-            <div className={styles.mapPage}>
+            <div style={{height:'100%', width:'100%', display:'flex', flexDirection:'column', overflow:'hidden'}}>
               <MapPanel
                 records={records}
                 selectedId={selected?.evidence_id}
@@ -433,24 +432,97 @@ export default function App() {
           {/* ── SETTINGS ── */}
           {page === 'settings' && (
             <div className={styles.settingsPage}>
-              <div className={styles.settingsCard}>
-                <div className={styles.settingsTitle}>System Configuration</div>
-                <div className={styles.settingsList}>
+
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionTitle}>System Status</div>
+                <div className={styles.statusGrid}>
                   {[
-                    { label: 'Oracle Database',  value: 'localhost:1521/FREEPDB1' },
-                    { label: 'API Backend',       value: 'localhost:8000' },
-                    { label: 'PWSID',             value: 'OK1020401' },
-                    { label: 'AI Engine',         value: 'PIPE_VISION_AI ResNet-50 v1-12' },
-                    { label: 'Vector Threshold',  value: '< 0.35 (Lead Suspect)' },
-                    { label: 'Regulatory',        value: 'ODEQ LCRR/LCRI · 40 CFR §141' },
+                    { label: 'API Backend',    value: 'Online',    sub: 'localhost:8000' },
+                    { label: 'Oracle 23ai',    value: 'Connected', sub: 'FREEPDB1' },
+                    { label: 'PIPE_VISION_AI', value: 'Loaded',    sub: 'YOLOv11n v2' },
+                    { label: 'Gemini 2.5',     value: 'Active',    sub: 'Vision API' },
                   ].map(s => (
-                    <div key={s.label} className={styles.settingRow}>
-                      <span className={styles.settingLabel}>{s.label}</span>
-                      <span className={`${styles.settingValue} mono`}>{s.value}</span>
+                    <div key={s.label} className={styles.statusCard}>
+                      <div className={styles.statusCardTop}>
+                        <span className={styles.statusDotOk} />
+                        <span className={styles.statusLabel}>{s.label}</span>
+                      </div>
+                      <div className={styles.statusValue}>{s.value}</div>
+                      <div className={styles.statusSub}>{s.sub}</div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionTitle}>Compliance Configuration</div>
+                <div className={styles.settingsCard}>
+                  {[
+                    { label: 'PWSID',         value: 'OK1020401' },
+                    { label: 'Utility',       value: 'Oklahoma City Public Works' },
+                    { label: 'Regulatory',    value: 'ODEQ LCRR/LCRI · 40 CFR §141' },
+                    { label: 'LCRI Deadline', value: 'November 1, 2027' },
+                    { label: 'State Agency',  value: 'Oklahoma DEQ (ODEQ)' },
+                  ].map(s => (
+                    <div key={s.label} className={styles.settingRow}>
+                      <span className={styles.settingLabel}>{s.label}</span>
+                      <span className={styles.settingValue + ' mono'}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionTitle}>AI Engine</div>
+                <div className={styles.settingsCard}>
+                  {[
+                    { label: 'Material Detection', value: 'Gemini 2.5 Flash' },
+                    { label: 'Condition Model',    value: 'PIPE_VISION_AI YOLOv11n v2' },
+                    { label: 'Training Images',    value: '31,013 augmented' },
+                    { label: 'Corrosion Accuracy', value: '84.9% mAP50' },
+                    { label: 'Vector Threshold',   value: '< 0.35 Lead Suspect' },
+                  ].map(s => (
+                    <div key={s.label} className={styles.settingRow}>
+                      <span className={styles.settingLabel}>{s.label}</span>
+                      <span className={styles.settingValue + ' mono'}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionTitle}>Inspector Security Tokens</div>
+                <div className={styles.settingsCard}>
+                  {[
+                    { label: 'A. Mutu (Badge 402)',  value: 'PIN-9402' },
+                    { label: 'J. Doe (Badge 185)',   value: 'PIN-1185' },
+                    { label: 'S. Smith (Badge 365)', value: 'PIN-2365' },
+                  ].map(s => (
+                    <div key={s.label} className={styles.settingRow}>
+                      <span className={styles.settingLabel}>{s.label}</span>
+                      <span className={styles.settingValue + ' mono'} style={{background:'var(--bg-elevated)',padding:'2px 8px',borderRadius:4}}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionTitle}>About</div>
+                <div className={styles.settingsCard}>
+                  {[
+                    { label: 'Product',   value: 'OKW FieldSync v2.0' },
+                    { label: 'Stack',     value: 'SwiftUI · FastAPI · Oracle 23ai · React' },
+                    { label: 'GitHub',    value: 'github.com/Abrahamgutu1/OKW' },
+                    { label: 'Developer', value: 'Abraham Gutu · OU CS 2027' },
+                  ].map(s => (
+                    <div key={s.label} className={styles.settingRow}>
+                      <span className={styles.settingLabel}>{s.label}</span>
+                      <span className={styles.settingValue + ' mono'}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 

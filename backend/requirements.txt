@@ -3,3 +3,8 @@ uvicorn[standard]
 oracledb
 pydantic
 python-multipart
+ultralytics
+pillow
+pillow-heif
+numpy
+python-dotenv

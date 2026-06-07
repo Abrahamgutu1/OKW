@@ -225,7 +225,7 @@
 .inventoryPanel { width: 380px; flex-shrink: 0; overflow: hidden; border-left: 1px solid var(--border-subtle); }
 
 /* ── MAP ── */
-.mapPage { height: 100%; display: flex; flex-direction: column; }
+.mapPage { height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden; }
 
 /* ── INSPECTION ── */
 .inspectionPage { display: flex; height: 100%; overflow: hidden; }
@@ -262,3 +262,25 @@
   width: 4px; height: 4px; border-radius: 50%;
   background: var(--teal); animation: pulse-dot 2s infinite;
 }
+
+/* Settings page sections */
+.settingsSection { margin-bottom: 20px; }
+.settingsSectionTitle {
+  font-size: 9px; font-weight: 800; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin-bottom: 8px; padding-left: 2px;
+}
+.statusGrid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.statusCard {
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 12px;
+}
+.statusCardTop { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.statusDotOk {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0;
+}
+.statusLabel { font-size: 10px; font-weight: 700; color: var(--text-secondary); }
+.statusValue { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.statusSub { font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); }

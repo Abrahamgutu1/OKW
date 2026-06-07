@@ -69,9 +69,9 @@ enum PhotoEncoder {
 // ── Claude Vision Client ───────────────────────────────────────────────────────
 final class ClaudeVisionClient {
 
-    private let apiKey   = "YOUR_ANTHROPIC_KEY_HERE"
-    private let endpoint = "https://api.anthropic.com/v1/messages"
-    private let model    = "claude-haiku-4-5-20251001"
+    private let apiKey   = "AQ.Ab8RN6JzhXRe_MtK3cjguaDf95Ozso7FIj0LW7qcnqsP0PKJkA"
+    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    private let model    = "gemini-2.5-flash"
 
     private let prompt = """
     You are an EPA Lead and Copper Rule compliance assistant analyzing a field photo \
@@ -105,32 +105,25 @@ final class ClaudeVisionClient {
         }
 
         let body: [String: Any] = [
-            "model": model,
-            "max_tokens": 512,
-            "messages": [[
-                "role": "user",
-                "content": [
-                    [
-                        "type": "image",
-                        "source": [
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": base64
-                        ]
-                    ],
-                    [
-                        "type": "text",
-                        "text": prompt
-                    ]
+            "contents": [[
+                "parts": [
+                    ["text": prompt],
+                    ["inline_data": [
+                        "mime_type": "image/jpeg",
+                        "data": base64
+                    ]]
                 ]
-            ]]
+            ]],
+            "generationConfig": [
+                "temperature": 0.1,
+                "maxOutputTokens": 512
+            ]
         ]
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json",  forHTTPHeaderField: "content-type")
-        request.setValue(apiKey,              forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01",        forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.setValue(apiKey,             forHTTPHeaderField: "x-goog-api-key")
         request.timeoutInterval = 20
 
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
@@ -150,10 +143,12 @@ final class ClaudeVisionClient {
 
     private func parseResponse(data: Data) -> VisionAnalysis? {
         guard
-            let json     = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let content  = json["content"] as? [[String: Any]],
-            let first    = content.first,
-            let text     = first["text"] as? String
+            let json       = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let candidates = json["candidates"] as? [[String: Any]],
+            let first      = candidates.first,
+            let content    = first["content"] as? [String: Any],
+            let parts      = content["parts"] as? [[String: Any]],
+            let text       = parts.first?["text"] as? String
         else { return nil }
 
         let cleaned = text

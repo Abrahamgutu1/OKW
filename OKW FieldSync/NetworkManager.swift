@@ -71,7 +71,7 @@ final class NetworkManager: ObservableObject {
         }
 
         // Compress image to JPEG at 0.75 quality — matches sync_processor.py
-        guard let jpegData = image.jpegData(compressionQuality: 0.75) else {
+        guard let jpegData = image.jpegData(compressionQuality: 0.4) else {
             completion(.failure("Failed to encode image as JPEG"))
             return
         }
@@ -98,7 +98,7 @@ final class NetworkManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody   = body
-        request.timeoutInterval = 30
+        request.timeoutInterval = 60
 
         DispatchQueue.main.async { self.isUploading = true }
 

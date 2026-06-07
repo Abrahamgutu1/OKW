@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
-import oracledb, os, subprocess, base64, json
+import oracledb, os, subprocess, base64, json, threading
+from PIL import Image
+import io
 from datetime import datetime
 import random
 
@@ -26,6 +28,16 @@ DB_PASS = "Awesomekid123"
 DB_DSN  = "localhost:1521/FREEPDB1"
 WORKSPACE = os.path.expanduser("~/Desktop/OKW FieldSync")
 PWSID = "OK1020401"
+
+# ── PIPE_VISION_AI YOLOv11 ─────────────────────────────────────────────────────
+try:
+    from ultralytics import YOLO
+    MODEL_PATH = os.path.expanduser("~/Desktop/OKW FieldSync/PipeVisionModels/best.pt")
+    pipe_vision_model = YOLO(MODEL_PATH) if os.path.exists(MODEL_PATH) else None
+    print(f"PIPE_VISION_AI: {'loaded' if pipe_vision_model else 'model file not found'}")
+except Exception as e:
+    pipe_vision_model = None
+    print(f"PIPE_VISION_AI unavailable: {e}")
 
 # Mount photos for browser access
 try:
@@ -149,11 +161,88 @@ def upload_inspection(body: InspectionUpload):
         cursor.close()
         conn.close()
 
+        # Auto-run PIPE_VISION_AI in background thread
+        pipe_result = {"status": "processing"}
+        def run_pipe_vision_bg(ev_id, img_b64):
+            if pipe_vision_model is None: return
+            try:
+                from PIL import Image
+                import io
+                img_data = base64.b64decode(img_b64)
+                img = Image.open(io.BytesIO(img_data)).convert("RGB")
+                yolo_results = pipe_vision_model(img, conf=0.25, verbose=False)
+                yolo_result  = yolo_results[0]
+                corrosion_conf = 0.0; crack_conf = 0.0
+                for box in yolo_result.boxes:
+                    cls_name = yolo_result.names[int(box.cls[0])]
+                    confidence = float(box.conf[0])
+                    if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
+                    elif cls_name == "crack":   crack_conf = max(crack_conf, confidence)
+                severity = int(corrosion_conf * 60) + int(crack_conf * 40)
+                if corrosion_conf > 0 and crack_conf > 0: condition = "CRITICAL"
+                elif corrosion_conf > 0: condition = "ELEVATED"
+                elif crack_conf > 0:     condition = "REVIEW"
+                else:                    condition = "CLEAR"
+                conn2 = get_conn(); cursor2 = conn2.cursor()
+                cursor2.execute("UPDATE SYSTEM.EVIDENCE SET PIPE_CONDITION=:1,PIPE_SEVERITY=:2,PIPE_CORROSION=:3,PIPE_CRACK=:4 WHERE EVIDENCE_ID=:5",
+                    (condition, severity, round(corrosion_conf,3), round(crack_conf,3), ev_id))
+                conn2.commit(); cursor2.close(); conn2.close()
+            except Exception as e:
+                print(f"PIPE_VISION background error: {e}")
+        threading.Thread(target=run_pipe_vision_bg, args=(body.evidence_id, body.image_base64), daemon=True).start()
+        if False and pipe_vision_model is not None:
+            try:
+                img_data = base64.b64decode(body.image_base64)
+                img = Image.open(io.BytesIO(img_data)).convert("RGB")
+                yolo_results = pipe_vision_model(img, conf=0.25, verbose=False)
+                yolo_result  = yolo_results[0]
+                detections = []
+                corrosion_conf = 0.0
+                crack_conf = 0.0
+                for box in yolo_result.boxes:
+                    cls_name   = yolo_result.names[int(box.cls[0])]
+                    confidence = float(box.conf[0])
+                    detections.append({"class": cls_name, "confidence": round(confidence, 3)})
+                    if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
+                    elif cls_name == "crack":   crack_conf = max(crack_conf, confidence)
+                severity = int(corrosion_conf * 60) + int(crack_conf * 40)
+                if corrosion_conf > 0 and crack_conf > 0:
+                    condition = "CRITICAL"
+                elif corrosion_conf > 0:
+                    condition = "ELEVATED"
+                elif crack_conf > 0:
+                    condition = "REVIEW"
+                elif len(detections) == 0:
+                    condition = "CLEAR"
+                else:
+                    condition = "MONITOR"
+                pipe_result = {
+                    "detections": detections,
+                    "severity_score": severity,
+                    "condition": condition,
+                    "corrosion_confidence": round(corrosion_conf, 3),
+                    "crack_confidence": round(crack_conf, 3)
+                }
+                # Save to Oracle
+                conn2 = get_conn(); cursor2 = conn2.cursor()
+                cursor2.execute("""
+                    UPDATE SYSTEM.EVIDENCE SET
+                        PIPE_CONDITION = :1,
+                        PIPE_SEVERITY  = :2,
+                        PIPE_CORROSION = :3,
+                        PIPE_CRACK     = :4
+                    WHERE EVIDENCE_ID = :5
+                """, (condition, severity, round(corrosion_conf,3), round(crack_conf,3), body.evidence_id))
+                conn2.commit(); cursor2.close(); conn2.close()
+            except Exception as e:
+                pipe_result = {"error": str(e)}
+
         return {
             "status":  "ok",
             "message": f"EV-{body.evidence_id} uploaded successfully",
             "photo":   filename,
-            "classification": auto_status
+            "classification": auto_status,
+            "pipe_vision": pipe_result
         }
 
     except Exception as e:
@@ -171,7 +260,11 @@ def get_evidence():
                        GPS_LATITUDE, GPS_LONGITUDE, UPLOAD_DATE,
                        NVL(USER_VERIFIED_STATUS,'UNVERIFIED') AS USER_VERIFIED_STATUS,
                        AUDITED_BY,
-                       VECTOR_DISTANCE(IMAGE_VECTOR,VECTOR('[1.00,0.00,1.00]',3,FLOAT32),COSINE) AS AI_DISTANCE
+                       VECTOR_DISTANCE(IMAGE_VECTOR,VECTOR('[1.00,0.00,1.00]',3,FLOAT32),COSINE) AS AI_DISTANCE,
+                       NVL(PIPE_CONDITION,'—') AS PIPE_CONDITION,
+                       PIPE_SEVERITY,
+                       PIPE_CORROSION,
+                       PIPE_CRACK
                 FROM SYSTEM.EVIDENCE ORDER BY SERVICE_LINE_ID, EVIDENCE_ID
             """)
             vec_ok = True
@@ -180,7 +273,9 @@ def get_evidence():
                 SELECT EVIDENCE_ID, SERVICE_LINE_ID, PHOTO_URL,
                        GPS_LATITUDE, GPS_LONGITUDE, UPLOAD_DATE,
                        NVL(USER_VERIFIED_STATUS,'UNVERIFIED') AS USER_VERIFIED_STATUS,
-                       AUDITED_BY, NULL AS AI_DISTANCE
+                       AUDITED_BY, NULL AS AI_DISTANCE,
+                       NVL(PIPE_CONDITION,'—') AS PIPE_CONDITION,
+                       PIPE_SEVERITY, PIPE_CORROSION, PIPE_CRACK
                 FROM SYSTEM.EVIDENCE ORDER BY SERVICE_LINE_ID, EVIDENCE_ID
             """)
             vec_ok = False
@@ -325,6 +420,45 @@ def delete_evidence(evidence_id: int):
         conn.commit(); cursor.close(); conn.close()
         return {"status": "ok", "message": f"EV-{evidence_id} deleted"}
     except HTTPException: raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class PipeVisionRequest(BaseModel):
+    photo_base64: str
+    evidence_id:  Optional[int] = None
+
+@app.post("/api/pipe_vision")
+def run_pipe_vision(body: PipeVisionRequest):
+    if pipe_vision_model is None:
+        return {"status": "unavailable", "detections": [], "recommendation": "Model not loaded", "severity_score": 0}
+    try:
+        img_data = base64.b64decode(body.photo_base64)
+        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+        results = pipe_vision_model(img, conf=0.25, verbose=False)
+        result  = results[0]
+        detections = []
+        corrosion_conf = 0.0
+        crack_conf     = 0.0
+        for box in result.boxes:
+            cls_name   = result.names[int(box.cls[0])]
+            confidence = float(box.conf[0])
+            detections.append({"class": cls_name, "confidence": round(confidence, 3)})
+            if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
+            elif cls_name == "crack":   crack_conf     = max(crack_conf, confidence)
+        severity = int(corrosion_conf * 60) + int(crack_conf * 40)
+        if corrosion_conf > 0 and crack_conf > 0:
+            rec = "CRITICAL — Active corrosion and cracking detected."
+        elif corrosion_conf > 0:
+            rec = "ELEVATED — Corrosion detected. Schedule inspection within 30 days."
+        elif crack_conf > 0:
+            rec = "REVIEW — Crack detected. Inspector verification required."
+        elif len(detections) == 0:
+            rec = "CLEAR — No defects detected."
+        else:
+            rec = "MONITOR — Joint/fitting detected."
+        return {"status": "ok", "detections": detections, "detection_count": len(detections),
+                "severity_score": severity, "recommendation": rec, "model": "PIPE_VISION_AI YOLOv11n v1"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

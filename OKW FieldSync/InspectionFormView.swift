@@ -9,16 +9,18 @@ struct InspectionFormView: View {
 
     @Environment(\.modelContext) private var context
     @StateObject private var location = LocationManager()
+    @StateObject private var capture  = FieldCaptureManager()
     @State private var selectedMaterial: String = ""
     @State private var serviceLineID  = ""
     @State private var evidenceID     = ""
-    @State private var capturedImage: UIImage? = nil
     @State private var showCamera     = false
     @State private var showImagePicker = false
     @State private var showSuccess    = false
     @State private var errorMessage   = ""
     @State private var showError      = false
     @State private var drawerExpanded = true
+
+    private var capturedImage: UIImage? { capture.capturedImage }
 
     enum Field { case serviceLineID, evidenceID }
     @FocusState private var focusedField: Field?
@@ -60,8 +62,14 @@ struct InspectionFormView: View {
                 }
             }
         }
-        .sheet(isPresented: $showCamera) { CameraPicker(selectedImage: $capturedImage) }
-        .sheet(isPresented: $showImagePicker) { ImageLibraryPicker(selectedImage: $capturedImage) }
+        .sheet(isPresented: $showCamera) {
+            CameraPicker(selectedImage: .constant(nil), onImageSelected: { img in
+                capture.photoSelected(img)
+            })
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImageLibraryPicker(selectedImage: .constant(nil))
+        }
         .alert("Record Saved", isPresented: $showSuccess) {
             Button("OK") { resetForm() }
         } message: { Text("Inspection record queued for sync.") }
@@ -71,7 +79,32 @@ struct InspectionFormView: View {
     }
 
     private var mapView: some View {
-        Map(coordinateRegion: $region, showsUserLocation: true)
+        Map(position: .constant(
+            location.hasValidFix
+                ? .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.002, longitudeDelta: 0.002)))
+                : .region(region)
+        )) {
+            if location.hasValidFix {
+                Annotation("", coordinate: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentTeal.opacity(0.2))
+                            .frame(width: 48, height: 48)
+                        Circle()
+                            .stroke(Color.accentTeal, lineWidth: 2)
+                            .frame(width: 48, height: 48)
+                        Circle()
+                            .fill(Color.accentTeal)
+                            .frame(width: 14, height: 14)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
+                            .shadow(color: .accentTeal.opacity(0.6), radius: 4)
+                    }
+                }
+            }
+        }
+        .mapStyle(.imagery(elevation: .realistic))
     }
 
     private var statusBanner: some View {
@@ -90,8 +123,8 @@ struct InspectionFormView: View {
                     .font(.system(size: 10))
                     .foregroundColor(location.hasValidFix ? .safeGreen : .pendingAmber)
                 Text(location.hasValidFix
-                     ? String(format: "GPS ±%.0fm", location.accuracy)
-                     : "Acquiring GPS…")
+                     ? String(format: "GPS +/-%.0fm", location.accuracy)
+                     : "Acquiring GPS...")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(location.hasValidFix ? .safeGreen : .pendingAmber)
             }.padding(.horizontal, 10)
@@ -179,7 +212,7 @@ struct InspectionFormView: View {
                     .foregroundColor(.labelGray).tracking(0.8)
                 Text(location.hasValidFix
                      ? String(format: "%.5f, %.5f", location.latitude, location.longitude)
-                     : "Acquiring…")
+                     : "Acquiring...")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(location.hasValidFix ? .primary : .pendingAmber)
             }
@@ -240,11 +273,13 @@ struct InspectionFormView: View {
                         .font(.system(size: 10, weight: .bold)).foregroundColor(.safeGreen)
                 }
             }
+
             if let img = capturedImage {
                 Image(uiImage: img).resizable().scaledToFill()
                     .frame(maxWidth: .infinity).frame(height: 130).clipped().cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentTeal, lineWidth: 1.5))
             }
+
             HStack(spacing: 10) {
                 Button(action: { showCamera = true }) {
                     HStack(spacing: 6) {
@@ -267,15 +302,120 @@ struct InspectionFormView: View {
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.borderSubtle, lineWidth: 1.5))
                 }
             }
+
+            // Gemini analyzing spinner
+            if capture.isAnalyzing {
+                HStack(spacing: 10) {
+                    ProgressView().scaleEffect(0.8).tint(.accentTeal)
+                    Text("Gemini 2.5 Flash analyzing pipe...")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.accentTeal)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentTeal.opacity(0.08))
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentTeal.opacity(0.3), lineWidth: 1))
+            }
+
+            // Gemini result card
+            if let analysis = capture.visionResult {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        HStack(spacing: 5) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.accentTeal)
+                            Text("GEMINI AI ANALYSIS")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundColor(.accentTeal)
+                                .tracking(1)
+                        }
+                        Spacer()
+                        Text(analysis.riskLevel)
+                            .font(.system(size: 9, weight: .black))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(
+                                analysis.riskLevel == "HIGH"   ? Color.dangerRed :
+                                analysis.riskLevel == "MEDIUM" ? Color.pendingAmber :
+                                                                 Color.safeGreen
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                    }
+
+                    HStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("MATERIAL")
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundColor(.labelGray).tracking(0.8)
+                            Text(analysis.materialGuess.capitalized)
+                                .font(.system(size: 14, weight: .black, design: .monospaced))
+                                .foregroundColor(.textPrimary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("PIPE DETECTED")
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundColor(.labelGray).tracking(0.8)
+                            HStack(spacing: 4) {
+                                Image(systemName: analysis.isPipeConfirmed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(analysis.isPipeConfirmed ? .safeGreen : .dangerRed)
+                                Text(analysis.isPipeConfirmed ? "Yes" : "No")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(analysis.isPipeConfirmed ? .safeGreen : .dangerRed)
+                            }
+                        }
+                    }
+
+                    if !analysis.description.isEmpty {
+                        Text(analysis.description)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .lineLimit(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if analysis.isPipeConfirmed && selectedMaterial.isEmpty {
+                        Button(action: {
+                            let detected = analysis.materialGuess.lowercased()
+                            if detected.contains("lead")        { selectedMaterial = "Lead" }
+                            else if detected.contains("copper") { selectedMaterial = "Copper" }
+                            else if detected.contains("galvan") { selectedMaterial = "Galvanized" }
+                            else if detected.contains("pvc")    { selectedMaterial = "PVC" }
+                            else                                 { selectedMaterial = "Unknown" }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "wand.and.sparkles").font(.system(size: 11))
+                                Text("Auto-select: \(analysis.materialGuess.capitalized)")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity).padding(.vertical, 8)
+                            .background(Color.accentTeal.opacity(0.1))
+                            .foregroundColor(.accentTeal)
+                            .cornerRadius(6)
+                            .overlay(RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.accentTeal.opacity(0.4), lineWidth: 1))
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Color.inputBG)
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentTeal.opacity(0.25), lineWidth: 1))
+            }
         }
     }
 
     private let materials: [(label: String, color: Color, risk: String, icon: String)] = [
-        ("Lead",       .dangerRed,    "HIGH",   "exclamationmark.triangle.fill"),
-        ("Galvanized", .pendingAmber, "MEDIUM", "minus.circle.fill"),
-        ("Copper",     .safeGreen,    "LOW",    "checkmark.circle.fill"),
-        ("PVC",        .safeGreen,    "LOW",    "checkmark.circle.fill"),
-        ("Unknown",    .labelGray,    "HIGH",   "questionmark.circle.fill")
+        ("Lead",       .dangerRed,    "HIGH", "exclamationmark.triangle.fill"),
+        ("Galvanized", .pendingAmber, "MED",  "minus.circle.fill"),
+        ("Copper",     .safeGreen,    "LOW",  "checkmark.circle.fill"),
+        ("PVC",        .safeGreen,    "LOW",  "checkmark.circle.fill"),
+        ("Unknown",    .labelGray,    "HIGH", "questionmark.circle.fill")
     ]
 
     private var materialSection: some View {
@@ -362,12 +502,15 @@ struct InspectionFormView: View {
             default:                return "LOW"
             }
         }()
+        let meta = capture.visionMetadata()
         let record = InspectionRecord(
             evidenceID: evID, serviceLineID: slID,
             gpsLatitude: location.latitude, gpsLongitude: location.longitude,
             gpsAccuracy: location.accuracy, photoBase64: base64,
-            visionLabels: selectedMaterial.lowercased(),
-            visionColor: "", visionPipeConfirmed: "1", visionConfidence: risk
+            visionLabels: meta["vision_labels"] ?? selectedMaterial.lowercased(),
+            visionColor: meta["vision_color"] ?? "",
+            visionPipeConfirmed: meta["vision_pipe_confirmed"] ?? "1",
+            visionConfidence: meta["vision_confidence"] ?? risk
         )
         context.insert(record)
         try? context.save()
@@ -376,7 +519,8 @@ struct InspectionFormView: View {
 
     private func resetForm() {
         serviceLineID = ""; evidenceID = ""
-        capturedImage = nil; selectedMaterial = ""
+        capture.capturedImage = nil
+        selectedMaterial = ""
         withAnimation { drawerExpanded = true }
     }
 }

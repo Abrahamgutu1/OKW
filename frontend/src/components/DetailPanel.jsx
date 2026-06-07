@@ -165,6 +165,16 @@ export default function DetailPanel({ record, onClose }) {
                     color: record.user_verified_status?.includes('LEAD') ? 'var(--danger-600)' : record.user_verified_status?.includes('SAFE') ? 'var(--success-600)' : 'var(--gray-500)' },
                   { label: 'Inspector',     value: record.audited_by || 'Not yet verified' },
                   { label: 'AI Engine',     value: 'PIPE_VISION_AI · ResNet-50 v1-12', mono: true },
+                  { label: 'Pipe Condition', value: record.pipe_condition || '—',
+                    color: record.pipe_condition === 'CRITICAL' ? 'var(--danger-600)' :
+                           record.pipe_condition === 'ELEVATED' ? 'var(--warn-600)' :
+                           record.pipe_condition === 'CLEAR'    ? 'var(--success-600)' : undefined },
+                  { label: 'Corrosion',      value: record.pipe_corrosion ? `${(record.pipe_corrosion*100).toFixed(1)}%` : '—',
+                    color: record.pipe_corrosion > 0.5 ? 'var(--danger-600)' : undefined },
+                  { label: 'Crack',          value: record.pipe_crack ? `${(record.pipe_crack*100).toFixed(1)}%` : '—',
+                    color: record.pipe_crack > 0.5 ? 'var(--danger-600)' : undefined },
+                  { label: 'Severity Score', value: record.pipe_severity != null ? `${record.pipe_severity}/100` : '—',
+                    color: record.pipe_severity > 50 ? 'var(--danger-600)' : undefined },
                 ].map(row => (
                   <tr key={row.label} className={styles.attrRow}>
                     <td className={styles.attrLabel}>{row.label}</td>

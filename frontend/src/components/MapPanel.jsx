@@ -52,6 +52,7 @@ export default function MapPanel({ records, selectedId, onSelect, onBoundsChange
       map.on('zoomend', fireBounds)
 
       instanceRef.current = { map, L }
+      setTimeout(() => map.invalidateSize(), 100)
     })
 
     return () => {
