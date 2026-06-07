@@ -69,7 +69,7 @@ enum PhotoEncoder {
 // ── Claude Vision Client ───────────────────────────────────────────────────────
 final class ClaudeVisionClient {
 
-    private let apiKey   = "AQ.Ab8RN6JzhXRe_MtK3cjguaDf95Ozso7FIj0LW7qcnqsP0PKJkA"
+    private let apiKey   = "YOUR_GEMINI_API_KEY_HERE"
     private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     private let model    = "gemini-2.5-flash"
 
