@@ -16,7 +16,7 @@ const GROUPS = {
   system:     'System',
 }
 
-export default function Sidebar({ activePage, onNavigate }) {
+export default function Sidebar({ activePage, onNavigate, user, onLogout }) {
   const grouped = {}
   NAV.forEach(item => {
     if (!grouped[item.group]) grouped[item.group] = []
@@ -65,17 +65,32 @@ export default function Sidebar({ activePage, onNavigate }) {
       {/* Footer */}
       <div className={styles.sidebarFooter}>
         <div className={styles.userCard}>
-          <div className={styles.avatar}>AM</div>
+          <div className={styles.avatar}>
+            {user ? user.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() : 'AM'}
+          </div>
           <div className={styles.userInfo}>
-            <span className={styles.userName}>A. Mutu</span>
-            <span className={styles.userRole}>Field Inspector</span>
+            <span className={styles.userName}>{user ? user.full_name : 'A. Mutu'}</span>
+            <span className={styles.userRole}>{user ? user.role : 'Field Inspector'}</span>
           </div>
           <span className={styles.onlineDot} />
         </div>
         <div className={styles.orgInfo}>
           <span className={styles.orgLabel}>Oklahoma City Public Works</span>
-          <span className={styles.orgPwsid}>PWSID: OK1020401</span>
+          <span className={styles.orgPwsid}>PWSID: {user ? user.utility_id : 'OK1020401'}</span>
         </div>
+        <button
+          onClick={onLogout}
+          style={{
+            width: '100%', marginTop: 8, padding: '7px',
+            background: 'rgba(220,38,38,0.08)',
+            border: '1px solid rgba(220,38,38,0.2)',
+            borderRadius: 6, color: '#f87171',
+            fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit', letterSpacing: '0.04em'
+          }}
+        >
+          Sign Out
+        </button>
       </div>
     </aside>
   )

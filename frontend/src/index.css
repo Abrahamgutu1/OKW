@@ -139,3 +139,9 @@ html, body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* Force Leaflet map to fill container */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+}

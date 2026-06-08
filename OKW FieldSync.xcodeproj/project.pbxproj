@@ -19,6 +19,7 @@
 		01726CA42FCB524C004B6BCE /* SETUP.md in Resources */ = {isa = PBXBuildFile; fileRef = 01726C972FCB524C004B6BCE /* SETUP.md */; };
 		01726CA52FCB524C004B6BCE /* AppIcon.svg in Resources */ = {isa = PBXBuildFile; fileRef = 01726C8C2FCB524C004B6BCE /* AppIcon.svg */; };
 		01726CA92FCD2DEA004B6BCE /* OKWFieldSyncApp-3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01726CA82FCD2DEA004B6BCE /* OKWFieldSyncApp-3.swift */; };
+		01F216782FD6F66000E10578 /* best_v2.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 01F216772FD6F66000E10578 /* best_v2.mlpackage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		01726C972FCB524C004B6BCE /* SETUP.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SETUP.md; sourceTree = "<group>"; };
 		01726C982FCB524C004B6BCE /* SyncQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueView.swift; sourceTree = "<group>"; };
 		01726CA82FCD2DEA004B6BCE /* OKWFieldSyncApp-3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OKWFieldSyncApp-3.swift"; sourceTree = "<group>"; };
+		01F216772FD6F66000E10578 /* best_v2.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = best_v2.mlpackage; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +76,7 @@
 				01726C902FCB524C004B6BCE /* ExportManager.swift */,
 				01726C912FCB524C004B6BCE /* FieldCaptureManager.swift */,
 				01726C932FCB524C004B6BCE /* InspectionFormView.swift */,
+				01F216772FD6F66000E10578 /* best_v2.mlpackage */,
 				01726C942FCB524C004B6BCE /* InspectionRecord.swift */,
 				01726C952FCB524C004B6BCE /* LaunchScreenView.swift */,
 				01726C962FCB524C004B6BCE /* NetworkManager.swift */,
@@ -165,6 +168,7 @@
 				01726C9D2FCB524C004B6BCE /* InspectionFormView.swift in Sources */,
 				01726C9E2FCB524C004B6BCE /* LaunchScreenView.swift in Sources */,
 				01726C9F2FCB524C004B6BCE /* DesignSystem.swift in Sources */,
+				01F216782FD6F66000E10578 /* best_v2.mlpackage in Sources */,
 				01726CA12FCB524C004B6BCE /* NetworkManager.swift in Sources */,
 				01726CA22FCB524C004B6BCE /* FieldCaptureManager.swift in Sources */,
 			);

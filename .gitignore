@@ -28,3 +28,4 @@ FieldPhotos/
 SyncDrop/*.processed
 PipeVisionDataset/images/
 # PipeVisionModels/
+backend/.env

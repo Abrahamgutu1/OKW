@@ -9,6 +9,7 @@ export default function MapPanel({ records, selectedId, onSelect, onBoundsChange
   const [layer, setLayer] = useState('satellite')
   const tileLayers  = useRef({})
 
+  // Force map to fill container when it becomes visible
   useEffect(() => {
     if (instanceRef.current || !mapRef.current) return
     import('leaflet').then(L => {
@@ -52,7 +53,11 @@ export default function MapPanel({ records, selectedId, onSelect, onBoundsChange
       map.on('zoomend', fireBounds)
 
       instanceRef.current = { map, L }
-      setTimeout(() => map.invalidateSize(), 100)
+      // Use ResizeObserver to detect when container actually reaches full size
+      const ro = new ResizeObserver(() => { map.invalidateSize() })
+      ro.observe(mapRef.current)
+      setTimeout(() => map.invalidateSize(), 50)
+      setTimeout(() => map.invalidateSize(), 300)
     })
 
     return () => {

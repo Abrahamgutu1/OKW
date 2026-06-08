@@ -3,22 +3,51 @@ OKW FieldSync — FastAPI Backend
 Run: uvicorn main:app --reload --port 8000 --host 0.0.0.0
 """
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
-import oracledb, os, subprocess, base64, json, threading
-from PIL import Image
-import io
-from datetime import datetime
+import oracledb, os, subprocess, base64, json
 import random
 
-app = FastAPI(title="OKW FieldSync API", version="2.0")
-# Serve field photos statically
-PHOTOS_DIR = os.path.join(WORKSPACE if "WORKSPACE" in dir() else os.path.expanduser("~/Desktop/OKW FieldSync"), "FieldPhotos")
-os.makedirs(PHOTOS_DIR, exist_ok=True)
+from dotenv import load_dotenv
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends
+from datetime import datetime, timedelta
 
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
+JWT_SECRET    = os.getenv("JWT_SECRET", "okw-fieldsync-secret-2026")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE    = 480
+
+pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+USERS_DB = {
+    "admin":      {"username":"admin",      "hashed_password":pwd_context.hash("OKW_Admin_2026!"),  "utility_id":"OK1020401","role":"admin",     "full_name":"System Administrator"},
+    "inspector1": {"username":"inspector1", "hashed_password":pwd_context.hash("Inspector_2026!"),  "utility_id":"OK1020401","role":"inspector",  "full_name":"A. Mutu"},
+    "inspector2": {"username":"inspector2", "hashed_password":pwd_context.hash("Inspector2_2026!"), "utility_id":"OK1020401","role":"inspector",  "full_name":"J. Doe"},
+}
+
+def create_token(data):
+    to_encode = data.copy()
+    to_encode["exp"] = datetime.utcnow() + timedelta(minutes=JWT_EXPIRE)
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    if not token: return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        username = payload.get("sub")
+        if username and username in USERS_DB:
+            return USERS_DB[username]
+    except: pass
+    return None
+
+app = FastAPI(title="OKW FieldSync API", version="3.0")
 app.add_middleware(CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -28,22 +57,6 @@ DB_PASS = "Awesomekid123"
 DB_DSN  = "localhost:1521/FREEPDB1"
 WORKSPACE = os.path.expanduser("~/Desktop/OKW FieldSync")
 PWSID = "OK1020401"
-
-# ── PIPE_VISION_AI YOLOv11 ─────────────────────────────────────────────────────
-try:
-    from ultralytics import YOLO
-    MODEL_PATH = os.path.expanduser("~/Desktop/OKW FieldSync/PipeVisionModels/best.pt")
-    pipe_vision_model = YOLO(MODEL_PATH) if os.path.exists(MODEL_PATH) else None
-    print(f"PIPE_VISION_AI: {'loaded' if pipe_vision_model else 'model file not found'}")
-except Exception as e:
-    pipe_vision_model = None
-    print(f"PIPE_VISION_AI unavailable: {e}")
-
-# Mount photos for browser access
-try:
-    app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
-except:
-    pass
 
 INSPECTOR_REGISTRY = {
     "PIN-9402": "A. Mutu (Badge #402)",
@@ -77,6 +90,24 @@ class InspectionUpload(BaseModel):
 def health():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
+# ── Auth endpoints ────────────────────────────────────────────────────────────
+@app.post("/api/auth/login")
+def login(form: OAuth2PasswordRequestForm = Depends()):
+    user = USERS_DB.get(form.username)
+    if not user or not pwd_context.verify(form.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = create_token({"sub": user["username"]})
+    return {"access_token": token, "token_type": "bearer",
+            "username": user["username"], "full_name": user["full_name"],
+            "utility_id": user["utility_id"], "role": user["role"],
+            "expires_in": JWT_EXPIRE * 60}
+
+@app.get("/api/auth/me")
+def get_me(user = Depends(get_current_user)):
+    if not user: raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"username": user["username"], "full_name": user["full_name"],
+            "utility_id": user["utility_id"], "role": user["role"]}
+
 # ── Upload inspection from iPhone ──────────────────────────────────────────────
 @app.post("/api/upload_inspection", status_code=201)
 def upload_inspection(body: InspectionUpload):
@@ -88,7 +119,7 @@ def upload_inspection(body: InspectionUpload):
         timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename    = f"EV{body.evidence_id}_SL{body.service_line_id}_{timestamp}.jpg"
         photo_path  = os.path.join(photos_dir, filename)
-        photo_url   = f"http://localhost:8000/photos/{filename}"
+        photo_url   = f"file://{photo_path}"
 
         try:
             img_data = base64.b64decode(body.image_base64)
@@ -161,88 +192,11 @@ def upload_inspection(body: InspectionUpload):
         cursor.close()
         conn.close()
 
-        # Auto-run PIPE_VISION_AI in background thread
-        pipe_result = {"status": "processing"}
-        def run_pipe_vision_bg(ev_id, img_b64):
-            if pipe_vision_model is None: return
-            try:
-                from PIL import Image
-                import io
-                img_data = base64.b64decode(img_b64)
-                img = Image.open(io.BytesIO(img_data)).convert("RGB")
-                yolo_results = pipe_vision_model(img, conf=0.25, verbose=False)
-                yolo_result  = yolo_results[0]
-                corrosion_conf = 0.0; crack_conf = 0.0
-                for box in yolo_result.boxes:
-                    cls_name = yolo_result.names[int(box.cls[0])]
-                    confidence = float(box.conf[0])
-                    if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
-                    elif cls_name == "crack":   crack_conf = max(crack_conf, confidence)
-                severity = int(corrosion_conf * 60) + int(crack_conf * 40)
-                if corrosion_conf > 0 and crack_conf > 0: condition = "CRITICAL"
-                elif corrosion_conf > 0: condition = "ELEVATED"
-                elif crack_conf > 0:     condition = "REVIEW"
-                else:                    condition = "CLEAR"
-                conn2 = get_conn(); cursor2 = conn2.cursor()
-                cursor2.execute("UPDATE SYSTEM.EVIDENCE SET PIPE_CONDITION=:1,PIPE_SEVERITY=:2,PIPE_CORROSION=:3,PIPE_CRACK=:4 WHERE EVIDENCE_ID=:5",
-                    (condition, severity, round(corrosion_conf,3), round(crack_conf,3), ev_id))
-                conn2.commit(); cursor2.close(); conn2.close()
-            except Exception as e:
-                print(f"PIPE_VISION background error: {e}")
-        threading.Thread(target=run_pipe_vision_bg, args=(body.evidence_id, body.image_base64), daemon=True).start()
-        if False and pipe_vision_model is not None:
-            try:
-                img_data = base64.b64decode(body.image_base64)
-                img = Image.open(io.BytesIO(img_data)).convert("RGB")
-                yolo_results = pipe_vision_model(img, conf=0.25, verbose=False)
-                yolo_result  = yolo_results[0]
-                detections = []
-                corrosion_conf = 0.0
-                crack_conf = 0.0
-                for box in yolo_result.boxes:
-                    cls_name   = yolo_result.names[int(box.cls[0])]
-                    confidence = float(box.conf[0])
-                    detections.append({"class": cls_name, "confidence": round(confidence, 3)})
-                    if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
-                    elif cls_name == "crack":   crack_conf = max(crack_conf, confidence)
-                severity = int(corrosion_conf * 60) + int(crack_conf * 40)
-                if corrosion_conf > 0 and crack_conf > 0:
-                    condition = "CRITICAL"
-                elif corrosion_conf > 0:
-                    condition = "ELEVATED"
-                elif crack_conf > 0:
-                    condition = "REVIEW"
-                elif len(detections) == 0:
-                    condition = "CLEAR"
-                else:
-                    condition = "MONITOR"
-                pipe_result = {
-                    "detections": detections,
-                    "severity_score": severity,
-                    "condition": condition,
-                    "corrosion_confidence": round(corrosion_conf, 3),
-                    "crack_confidence": round(crack_conf, 3)
-                }
-                # Save to Oracle
-                conn2 = get_conn(); cursor2 = conn2.cursor()
-                cursor2.execute("""
-                    UPDATE SYSTEM.EVIDENCE SET
-                        PIPE_CONDITION = :1,
-                        PIPE_SEVERITY  = :2,
-                        PIPE_CORROSION = :3,
-                        PIPE_CRACK     = :4
-                    WHERE EVIDENCE_ID = :5
-                """, (condition, severity, round(corrosion_conf,3), round(crack_conf,3), body.evidence_id))
-                conn2.commit(); cursor2.close(); conn2.close()
-            except Exception as e:
-                pipe_result = {"error": str(e)}
-
         return {
             "status":  "ok",
             "message": f"EV-{body.evidence_id} uploaded successfully",
             "photo":   filename,
-            "classification": auto_status,
-            "pipe_vision": pipe_result
+            "classification": auto_status
         }
 
     except Exception as e:
@@ -260,11 +214,7 @@ def get_evidence():
                        GPS_LATITUDE, GPS_LONGITUDE, UPLOAD_DATE,
                        NVL(USER_VERIFIED_STATUS,'UNVERIFIED') AS USER_VERIFIED_STATUS,
                        AUDITED_BY,
-                       VECTOR_DISTANCE(IMAGE_VECTOR,VECTOR('[1.00,0.00,1.00]',3,FLOAT32),COSINE) AS AI_DISTANCE,
-                       NVL(PIPE_CONDITION,'—') AS PIPE_CONDITION,
-                       PIPE_SEVERITY,
-                       PIPE_CORROSION,
-                       PIPE_CRACK
+                       VECTOR_DISTANCE(IMAGE_VECTOR,VECTOR('[1.00,0.00,1.00]',3,FLOAT32),COSINE) AS AI_DISTANCE
                 FROM SYSTEM.EVIDENCE ORDER BY SERVICE_LINE_ID, EVIDENCE_ID
             """)
             vec_ok = True
@@ -273,9 +223,7 @@ def get_evidence():
                 SELECT EVIDENCE_ID, SERVICE_LINE_ID, PHOTO_URL,
                        GPS_LATITUDE, GPS_LONGITUDE, UPLOAD_DATE,
                        NVL(USER_VERIFIED_STATUS,'UNVERIFIED') AS USER_VERIFIED_STATUS,
-                       AUDITED_BY, NULL AS AI_DISTANCE,
-                       NVL(PIPE_CONDITION,'—') AS PIPE_CONDITION,
-                       PIPE_SEVERITY, PIPE_CORROSION, PIPE_CRACK
+                       AUDITED_BY, NULL AS AI_DISTANCE
                 FROM SYSTEM.EVIDENCE ORDER BY SERVICE_LINE_ID, EVIDENCE_ID
             """)
             vec_ok = False
@@ -408,60 +356,6 @@ def seed_demo_data():
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Delete all records (dev only) ──────────────────────────────────────────────
-
-@app.delete("/api/evidence/{evidence_id}")
-def delete_evidence(evidence_id: int):
-    try:
-        conn = get_conn(); cursor = conn.cursor()
-        cursor.execute("DELETE FROM SYSTEM.EVIDENCE WHERE EVIDENCE_ID = :1", (evidence_id,))
-        if cursor.rowcount == 0:
-            cursor.close(); conn.close()
-            raise HTTPException(status_code=404, detail=f"EV-{evidence_id} not found")
-        conn.commit(); cursor.close(); conn.close()
-        return {"status": "ok", "message": f"EV-{evidence_id} deleted"}
-    except HTTPException: raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-class PipeVisionRequest(BaseModel):
-    photo_base64: str
-    evidence_id:  Optional[int] = None
-
-@app.post("/api/pipe_vision")
-def run_pipe_vision(body: PipeVisionRequest):
-    if pipe_vision_model is None:
-        return {"status": "unavailable", "detections": [], "recommendation": "Model not loaded", "severity_score": 0}
-    try:
-        img_data = base64.b64decode(body.photo_base64)
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        results = pipe_vision_model(img, conf=0.25, verbose=False)
-        result  = results[0]
-        detections = []
-        corrosion_conf = 0.0
-        crack_conf     = 0.0
-        for box in result.boxes:
-            cls_name   = result.names[int(box.cls[0])]
-            confidence = float(box.conf[0])
-            detections.append({"class": cls_name, "confidence": round(confidence, 3)})
-            if cls_name == "Corrosion": corrosion_conf = max(corrosion_conf, confidence)
-            elif cls_name == "crack":   crack_conf     = max(crack_conf, confidence)
-        severity = int(corrosion_conf * 60) + int(crack_conf * 40)
-        if corrosion_conf > 0 and crack_conf > 0:
-            rec = "CRITICAL — Active corrosion and cracking detected."
-        elif corrosion_conf > 0:
-            rec = "ELEVATED — Corrosion detected. Schedule inspection within 30 days."
-        elif crack_conf > 0:
-            rec = "REVIEW — Crack detected. Inspector verification required."
-        elif len(detections) == 0:
-            rec = "CLEAR — No defects detected."
-        else:
-            rec = "MONITOR — Joint/fitting detected."
-        return {"status": "ok", "detections": detections, "detection_count": len(detections),
-                "severity_score": severity, "recommendation": rec, "model": "PIPE_VISION_AI YOLOv11n v1"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.delete("/api/reset")
 def reset_data():
     """WARNING: Deletes all evidence records. Dev use only."""

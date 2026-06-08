@@ -1,21 +1,28 @@
 // FieldCaptureManager.swift
-// OKW FieldSync — Camera, GPS, Base64, Claude Vision pipe analysis
+// OKW FieldSync — Camera, GPS, Gemini Vision + PIPE_VISION_AI v2 CoreML
 
 import Foundation
 import UIKit
 import CoreLocation
+import CoreML
+import Vision
 import Combine
 import SwiftUI
 
 // ── Vision Result ──────────────────────────────────────────────────────────────
 struct VisionAnalysis {
-    var materialGuess: String
-    var description: String
+    var materialGuess:   String
+    var description:     String
     var isPipeConfirmed: Bool
-    var riskLevel: String
-    var dominantColor: String
-    var labels: [String]
-    var rawResponse: String
+    var riskLevel:       String
+    var dominantColor:   String
+    var labels:          [String]
+    var rawResponse:     String
+    // PIPE_VISION_AI v2 fields
+    var pipeCondition:   String   // "corrosion" | "crack" | "good" | "unknown"
+    var pipeSeverity:    String   // "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN"
+    var yoloConfidence:  Float    // 0.0 – 1.0
+    var yoloDetections:  [String] // e.g. ["corrosion (0.82)", "crack (0.61)"]
 }
 
 // ── Location Manager ───────────────────────────────────────────────────────────
@@ -23,16 +30,16 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
 
     private let manager = CLLocationManager()
 
-    @Published var latitude:  Double = 0.0
-    @Published var longitude: Double = 0.0
-    @Published var accuracy:  Double = -1
+    @Published var latitude:   Double = 0.0
+    @Published var longitude:  Double = 0.0
+    @Published var accuracy:   Double = -1
     @Published var statusText: String = "Acquiring GPS…"
 
     override init() {
         super.init()
-        manager.delegate           = self
-        manager.desiredAccuracy    = kCLLocationAccuracyBest
-        manager.distanceFilter     = kCLDistanceFilterNone
+        manager.delegate        = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter  = kCLDistanceFilterNone
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }
@@ -56,7 +63,7 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     var hasValidFix: Bool { accuracy > 0 && accuracy < 50 }
 }
 
-// ── Image → clean raw Base64 ───────────────────────────────────────────────────
+// ── Image → Base64 ─────────────────────────────────────────────────────────────
 enum PhotoEncoder {
     static func encode(_ image: UIImage, compressionQuality: CGFloat = 0.75) -> String? {
         guard let jpegData = image.jpegData(compressionQuality: compressionQuality) else {
@@ -66,10 +73,107 @@ enum PhotoEncoder {
     }
 }
 
-// ── Claude Vision Client ───────────────────────────────────────────────────────
+// ── PIPE_VISION_AI v2 — On-device CoreML ──────────────────────────────────────
+final class PipeVisionAI {
+
+    static let shared = PipeVisionAI()
+
+    private var visionModel: VNCoreMLModel?
+    private let classNames = ["corrosion", "crack"]   // must match training classes
+
+    private init() {
+        loadModel()
+    }
+
+    private func loadModel() {
+        guard let modelURL = Bundle.main.url(forResource: "best_v2",
+                                             withExtension: "mlpackage") else {
+            print("⚠️ PIPE_VISION_AI: best_v2.mlpackage not found in bundle")
+            return
+        }
+        do {
+            let config = MLModelConfiguration()
+            config.computeUnits = .cpuAndNeuralEngine
+            let mlModel = try MLModel(contentsOf: modelURL, configuration: config)
+            visionModel = try VNCoreMLModel(for: mlModel)
+            print("✅ PIPE_VISION_AI v2 loaded")
+        } catch {
+            print("⚠️ PIPE_VISION_AI load error: \(error)")
+        }
+    }
+
+    struct YOLOResult {
+        var condition:   String  // top detected class
+        var severity:    String  // HIGH/MEDIUM/LOW/UNKNOWN
+        var confidence:  Float
+        var detections:  [String]
+    }
+
+    func analyze(image: UIImage, completion: @escaping (YOLOResult) -> Void) {
+        guard let visionModel = visionModel,
+              let cgImage = image.cgImage else {
+            completion(YOLOResult(condition: "unknown", severity: "UNKNOWN",
+                                  confidence: 0, detections: []))
+            return
+        }
+
+        let request = VNCoreMLRequest(model: visionModel) { request, error in
+            guard error == nil,
+                  let results = request.results as? [VNRecognizedObjectObservation],
+                  !results.isEmpty else {
+                completion(YOLOResult(condition: "good", severity: "LOW",
+                                      confidence: 0, detections: []))
+                return
+            }
+
+            // Sort by confidence
+            let sorted = results.sorted { $0.confidence > $1.confidence }
+            var detections: [String] = []
+            var topCondition = "good"
+            var topConfidence: Float = 0
+
+            for obs in sorted.prefix(5) {
+                if let label = obs.labels.first {
+                    let det = "\(label.identifier) (\(String(format: "%.2f", obs.confidence)))"
+                    detections.append(det)
+                    if obs.confidence > topConfidence {
+                        topCondition  = label.identifier
+                        topConfidence = obs.confidence
+                    }
+                }
+            }
+
+            let severity: String
+            switch topCondition.lowercased() {
+            case "corrosion":
+                severity = topConfidence > 0.75 ? "HIGH" : topConfidence > 0.5 ? "MEDIUM" : "LOW"
+            case "crack":
+                severity = topConfidence > 0.70 ? "HIGH" : "MEDIUM"
+            default:
+                severity = "LOW"
+            }
+
+            completion(YOLOResult(
+                condition:  topCondition,
+                severity:   severity,
+                confidence: topConfidence,
+                detections: detections
+            ))
+        }
+
+        request.imageCropAndScaleOption = .scaleFill
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? handler.perform([request])
+        }
+    }
+}
+
+// ── Gemini Vision Client ───────────────────────────────────────────────────────
 final class ClaudeVisionClient {
 
-    private let apiKey   = "YOUR_GEMINI_API_KEY_HERE"
+    private let apiKey   = "GEMINI_API_KEY_HERE"
     private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     private let model    = "gemini-2.5-flash"
 
@@ -162,24 +266,23 @@ final class ClaudeVisionClient {
             let parsed   = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
         else {
             return VisionAnalysis(
-                materialGuess:   "unknown",
-                description:     text,
+                materialGuess: "unknown", description: text,
                 isPipeConfirmed: text.lowercased().contains("pipe"),
-                riskLevel:       "UNKNOWN",
-                dominantColor:   "unknown",
-                labels:          [],
-                rawResponse:     text
+                riskLevel: "UNKNOWN", dominantColor: "unknown",
+                labels: [], rawResponse: text,
+                pipeCondition: "unknown", pipeSeverity: "UNKNOWN",
+                yoloConfidence: 0, yoloDetections: []
             )
         }
 
-        let material  = parsed["material_guess"]           as? String ?? "unknown"
-        let risk      = parsed["risk_level"]               as? String ?? "UNKNOWN"
-        let color     = parsed["color_description"]        as? String ?? "unknown"
-        let surface   = parsed["surface_description"]      as? String ?? ""
-        let epaHint   = parsed["epa_classification_hint"]  as? String ?? ""
-        let note      = parsed["inspector_note"]           as? String ?? ""
-        let pipeFound = parsed["pipe_detected"]            as? Bool   ?? false
-        let confidence = parsed["confidence"]              as? String ?? "LOW"
+        let material  = parsed["material_guess"]          as? String ?? "unknown"
+        let risk      = parsed["risk_level"]              as? String ?? "UNKNOWN"
+        let color     = parsed["color_description"]       as? String ?? "unknown"
+        let surface   = parsed["surface_description"]     as? String ?? ""
+        let epaHint   = parsed["epa_classification_hint"] as? String ?? ""
+        let note      = parsed["inspector_note"]          as? String ?? ""
+        let pipeFound = parsed["pipe_detected"]           as? Bool   ?? false
+        let confidence = parsed["confidence"]             as? String ?? "LOW"
 
         let description = [epaHint, note].filter { !$0.isEmpty }.joined(separator: " ")
         let labels      = [material, color, surface, confidence.lowercased()]
@@ -192,7 +295,11 @@ final class ClaudeVisionClient {
             riskLevel:       risk,
             dominantColor:   color,
             labels:          labels,
-            rawResponse:     text
+            rawResponse:     text,
+            pipeCondition:   "unknown",
+            pipeSeverity:    "UNKNOWN",
+            yoloConfidence:  0,
+            yoloDetections:  []
         )
     }
 }
@@ -201,25 +308,76 @@ final class ClaudeVisionClient {
 @MainActor
 final class FieldCaptureManager: ObservableObject {
 
-    @Published var capturedImage: UIImage?
-    @Published var visionResult: VisionAnalysis?
-    @Published var isAnalyzing: Bool = false
+    @Published var capturedImage:    UIImage?
+    @Published var visionResult:     VisionAnalysis?
+    @Published var isAnalyzing:      Bool   = false
     @Published var visionStatusText: String = ""
 
-    private let claudeClient = ClaudeVisionClient()
+    private let geminiClient = ClaudeVisionClient()
 
     func photoSelected(_ image: UIImage) {
         capturedImage    = image
         visionResult     = nil
         isAnalyzing      = true
-        visionStatusText = "Analyzing pipe with Claude Vision…"
+        visionStatusText = "Analyzing pipe with Gemini + PIPE_VISION_AI…"
 
-        claudeClient.analyze(image: image) { [weak self] result in
+        // Run Gemini and YOLO in parallel using DispatchGroup
+        let group = DispatchGroup()
+
+        var geminiResult: VisionAnalysis?
+        var yoloResult: PipeVisionAI.YOLOResult?
+
+        // Gemini analysis
+        group.enter()
+        geminiClient.analyze(image: image) { result in
+            geminiResult = result
+            group.leave()
+        }
+
+        // PIPE_VISION_AI v2 analysis
+        group.enter()
+        PipeVisionAI.shared.analyze(image: image) { result in
+            yoloResult = result
+            group.leave()
+        }
+
+        // Merge results when both complete
+        group.notify(queue: .main) { [weak self] in
             guard let self else { return }
             self.isAnalyzing = false
-            if let result = result {
-                self.visionResult     = result
-                self.visionStatusText = result.description
+
+            if var analysis = geminiResult {
+                // Merge YOLO results into Gemini analysis
+                if let yolo = yoloResult {
+                    analysis.pipeCondition  = yolo.condition
+                    analysis.pipeSeverity   = yolo.severity
+                    analysis.yoloConfidence = yolo.confidence
+                    analysis.yoloDetections = yolo.detections
+
+                    // Escalate risk if YOLO finds severe corrosion
+                    if yolo.condition == "corrosion" && yolo.severity == "HIGH" && analysis.riskLevel != "HIGH" {
+                        analysis.riskLevel = "HIGH"
+                        analysis.description += " PIPE_VISION_AI detected severe corrosion."
+                    }
+                }
+                self.visionResult     = analysis
+                self.visionStatusText = analysis.description
+            } else if let yolo = yoloResult {
+                // Gemini failed, use YOLO only
+                self.visionResult = VisionAnalysis(
+                    materialGuess:   "unknown",
+                    description:     "PIPE_VISION_AI: \(yolo.condition) detected (\(String(format: "%.0f", yolo.confidence * 100))% confidence)",
+                    isPipeConfirmed: yolo.condition != "unknown",
+                    riskLevel:       yolo.severity,
+                    dominantColor:   "unknown",
+                    labels:          [yolo.condition],
+                    rawResponse:     "",
+                    pipeCondition:   yolo.condition,
+                    pipeSeverity:    yolo.severity,
+                    yoloConfidence:  yolo.confidence,
+                    yoloDetections:  yolo.detections
+                )
+                self.visionStatusText = self.visionResult?.description ?? ""
             } else {
                 self.visionStatusText = "Vision analysis unavailable — manual classification required"
             }
@@ -233,7 +391,11 @@ final class FieldCaptureManager: ObservableObject {
             "vision_color":          v.dominantColor,
             "vision_pipe_confirmed": v.isPipeConfirmed ? "1" : "0",
             "vision_confidence":     v.riskLevel,
-            "vision_raw_json":       v.rawResponse
+            "vision_raw_json":       v.rawResponse,
+            "pipe_condition":        v.pipeCondition,
+            "pipe_severity":         v.pipeSeverity,
+            "yolo_confidence":       String(format: "%.3f", v.yoloConfidence),
+            "yolo_detections":       v.yoloDetections.joined(separator: "|")
         ]
     }
 }

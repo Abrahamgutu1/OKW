@@ -1,16 +1,23 @@
-// useData.js — polls FastAPI every 30s
+// useData.js — polls FastAPI every 30s with JWT auth
 import { useState, useEffect, useCallback } from 'react'
 
-export function useData() {
+export function useData(token) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
 
   const fetch_ = useCallback(async () => {
+    if (!token) return
     try {
-      const res = await fetch('/api/evidence')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const res = await fetch('/api/evidence', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      if (res.status === 401) {
+        setError('Session expired — please log in again')
+        return
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status)
       const json = await res.json()
       setData(json)
       setError(null)
@@ -20,7 +27,7 @@ export function useData() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [token])
 
   useEffect(() => {
     fetch_()

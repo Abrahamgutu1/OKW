@@ -37,7 +37,7 @@
 }
 .retryBtn:hover { background: rgba(227,179,65,0.2); }
 
-.content { flex: 1; min-height: 0; overflow: hidden; }
+.content { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; width: 100%; }
 
 /* ── DASHBOARD — ArcGIS Operational Layout ── */
 .dashLayout {

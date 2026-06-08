@@ -8,6 +8,7 @@ import DataTable      from './components/DataTable'
 import MapPanel       from './components/MapPanel'
 import DetailPanel    from './components/DetailPanel'
 import styles         from './App.module.css'
+import LoginPage      from './components/LoginPage'
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function AnimatedNum({ value, color }) {
@@ -50,6 +51,30 @@ function ReportsPage({ kpis }) {
   const [status,  setStatus]  = React.useState(null)
   const [loading, setLoading] = React.useState(false)
   const [step,    setStep]    = React.useState(null)
+  const [xlFile,  setXlFile]  = React.useState(null)
+  const [xlStatus, setXlStatus] = React.useState(null)
+  const [xlLoading, setXlLoading] = React.useState(false)
+
+  async function handleExcelUpload() {
+    if (!xlFile) return
+    setXlLoading(true); setXlStatus(null)
+    const form = new FormData()
+    form.append('file', xlFile)
+    try {
+      const res = await fetch('/api/upload_excel', { method: 'POST', body: form })
+      const j = await res.json()
+      if (res.ok) {
+        setXlStatus({ type: 'success', text: j.message + ' — ' + j.imported + ' records imported.' })
+        setXlFile(null)
+      } else {
+        setXlStatus({ type: 'error', text: j.detail || 'Upload failed.' })
+      }
+    } catch {
+      setXlStatus({ type: 'error', text: 'Network error — is the API running?' })
+    } finally {
+      setXlLoading(false)
+    }
+  }
 
   const STEPS = ['Querying Oracle', 'Compiling Assets', 'Validating Layout', 'Typesetting LaTeX', 'Ready']
 
@@ -83,6 +108,79 @@ function ReportsPage({ kpis }) {
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 20 }}>
       <div style={{ maxWidth: 560 }}>
+
+        {/* Excel Import Section */}
+        <div style={{
+          background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16
+        }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 3 }}>
+              DATA IMPORT
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Import Service Line Data from Excel</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+              Upload an .xlsx file with columns: service_line_id, latitude, longitude, material, status, inspector
+            </div>
+          </div>
+          <div style={{ padding: '14px 18px' }}>
+            <div style={{
+              border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-md)',
+              padding: '20px', textAlign: 'center', marginBottom: 12,
+              background: xlFile ? 'var(--bg-elevated)' : 'transparent',
+              cursor: 'pointer'
+            }}
+              onClick={() => document.getElementById('xl-input').click()}
+            >
+              <input id="xl-input" type="file" accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={e => setXlFile(e.target.files[0])} />
+              {xlFile ? (
+                <div>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>📊</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--success)' }}>{xlFile.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{(xlFile.size / 1024).toFixed(1)} KB — click to change</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>📂</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Click to select Excel file</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>.xlsx or .xls supported</div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleExcelUpload}
+              disabled={!xlFile || xlLoading}
+              style={{
+                width: '100%', padding: '10px', borderRadius: 'var(--radius-md)',
+                background: xlFile ? 'var(--brand-500)' : 'var(--bg-elevated)',
+                color: xlFile ? '#fff' : 'var(--text-muted)',
+                border: 'none', fontWeight: 700, fontSize: 13,
+                cursor: xlFile ? 'pointer' : 'default', fontFamily: 'var(--font-ui)'
+              }}
+            >
+              {xlLoading ? 'Importing...' : 'Import to Oracle'}
+            </button>
+            {xlStatus && (
+              <div style={{
+                marginTop: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                background: xlStatus.type === 'success' ? 'var(--success-dim)' : 'var(--danger-dim)',
+                color: xlStatus.type === 'success' ? 'var(--success)' : 'var(--danger)',
+                fontSize: 12, fontWeight: 500
+              }}>
+                {xlStatus.type === 'success' ? '✓ ' : '⚠ '}{xlStatus.text}
+              </div>
+            )}
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.08em' }}>EXPECTED COLUMNS</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                service_line_id · latitude · longitude<br/>
+                material · status · inspector
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Header */}
         <div style={{
           background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
@@ -159,7 +257,19 @@ function ReportsPage({ kpis }) {
               </div>
             )}
 
-            <button onClick={handleGenerate} disabled={loading} style={{
+            <button
+          onClick={() => window.location.href='/api/export_excel'}
+          style={{
+            width:'100%', padding:'10px', marginBottom:10,
+            borderRadius:'var(--radius-md)',
+            background:'var(--bg-elevated)',
+            color:'var(--success)', border:'1px solid var(--success)',
+            fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'var(--font-ui)'
+          }}
+        >
+          ↓ Export to Excel (.xlsx) — Color-coded LCRI Inventory
+        </button>
+        <button onClick={handleGenerate} disabled={loading} style={{
               width: '100%', padding: '10px 16px',
               background: loading ? 'var(--bg-overlay)' : 'var(--brand-500)',
               color: loading ? 'var(--text-muted)' : '#fff',
@@ -211,7 +321,34 @@ function ReportsPage({ kpis }) {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const { data, loading, error, refresh, lastRefresh } = useData()
+  const [authUser, setAuthUser] = React.useState(() => {
+    const saved = sessionStorage.getItem('okw_user')
+    return saved ? JSON.parse(saved) : null
+  })
+  const [token, setToken] = React.useState(() => sessionStorage.getItem('okw_token') || null)
+
+  function handleLogin(data) {
+    sessionStorage.setItem('okw_token', data.access_token)
+    sessionStorage.setItem('okw_user', JSON.stringify({
+      username: data.username,
+      full_name: data.full_name,
+      utility_id: data.utility_id,
+      role: data.role
+    }))
+    setToken(data.access_token)
+    setAuthUser({ username: data.username, full_name: data.full_name,
+                  utility_id: data.utility_id, role: data.role })
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem('okw_token')
+    sessionStorage.removeItem('okw_user')
+    setToken(null); setAuthUser(null)
+  }
+
+  if (!authUser) return <LoginPage onLogin={handleLogin} />
+
+  const { data, loading, error, refresh, lastRefresh } = useData(token)
   const [page,     setPage]     = useState('dashboard')
   const [selected, setSelected] = useState(null)
   const [mapBounds, setMapBounds] = useState(null)
@@ -245,7 +382,7 @@ export default function App() {
 
   return (
     <div className={styles.shell}>
-      <Sidebar activePage={page} onNavigate={p => { setPage(p); if (p !== 'inventory') setSelected(null) }} />
+      <Sidebar activePage={page} onNavigate={p => { setPage(p); if (p !== 'inventory') setSelected(null); setTimeout(() => window.dispatchEvent(new Event('resize')), 100); setTimeout(() => window.dispatchEvent(new Event('resize')), 400); }} user={authUser} onLogout={handleLogout} />
 
       <div className={styles.main}>
         <AlertBanner records={records} />
@@ -398,8 +535,9 @@ export default function App() {
 
           {/* ── MAP ── */}
           {page === 'map' && (
-            <div style={{height:'100%', width:'100%', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+            <div style={{flex:1, width:'100%', height:'100%', minWidth:0, display:'flex', flexDirection:'column'}}>
               <MapPanel
+                key="map-panel"
                 records={records}
                 selectedId={selected?.evidence_id}
                 onSelect={handleMapSelect}

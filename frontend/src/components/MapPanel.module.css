@@ -4,7 +4,7 @@
 .wrap {
   height: 100%; width: 100%;
   display: flex; flex-direction: column;
-  border-radius: 8px; overflow: hidden;
+  border-radius: 0; overflow: hidden;
   position: relative; overflow: hidden;
   background: var(--bg-base);
 }
@@ -39,7 +39,7 @@
 .controlsRight {}
 .mapInfo { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
 
-.map { flex: 1; min-height: 0; z-index: 1; }
+.map { flex: 1; min-height: 0; z-index: 1; width: 100% !important; }
 
 /* Legend */
 .legend {
